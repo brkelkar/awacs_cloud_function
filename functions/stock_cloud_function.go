@@ -36,7 +36,7 @@ func (s *StockAttr) stockInit() {
 
 //StockCloudFunction used to load stock file to database
 func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err error) {
-	log.Printf("Starting Invoice file upload for :%v/%v ", g.FilePath, g.FileName)
+	log.Printf("Starting stock file upload for :%v/%v ", g.FilePath, g.FileName)
 
 	s.stockInit()
 	reader := csv.NewReader(g.GcsClient.GetReader())
@@ -91,12 +91,10 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 		stock = append(stock, val)
 	}
 	jsonValue, _ := json.Marshal(stock)
-	uploadServerURL := "http://" + cfg.Server.Host + ":" + strconv.Itoa(cfg.Server.Port) + "/api/stocks"
-	resp, err := http.Post(uploadServerURL, "application/json", bytes.NewBuffer(jsonValue))
-	if err != nil {
+	resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/stocks", "application/json", bytes.NewBuffer(jsonValue))
+	if err != nil || resp.Status != "200 OK" {
 		fmt.Println("Error while calling request", err)
-	}
-	if resp.Status != "200 OK" {
+
 		var d db.DbObj
 		dbPtr, err := d.GetConnection("smartdb", cfg)
 		if err != nil {
@@ -132,5 +130,8 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 			}
 		}
 	}
-	return
+	// If either of the loading is successful move file to ported
+	g.GcsClient.MoveObject(g.FileName, "ported/"+g.FileName, "balatestawacs")
+	log.Println("Porting Done :" + g.FileName)
+	return nil
 }
