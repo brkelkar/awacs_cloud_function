@@ -47,5 +47,11 @@ func SyncFileUpload(ctx context.Context, e models.GCSEvent) (err error) {
 
 	}
 
+	if strings.Contains(strings.ToLower(e.Bucket), "outstanding") {
+		log.Println("Calling Outstanding upload method")
+		var outstandingObj functions.OutstandingAttar
+		err = outstandingObj.OutstandingCloudFunction(g, cfg)
+	}
+
 	return
 }
