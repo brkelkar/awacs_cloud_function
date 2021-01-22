@@ -1,6 +1,6 @@
 package models
 
-import (	
+import (
 	"time"
 )
 
@@ -77,9 +77,9 @@ type Invoice struct {
 func (i *Invoice) getTableName() (tableName string) {
 	tableNamePreFix := "TMP_SMART_INVOICE_"
 	t := time.Now().UTC()
-	timeformat:=t.Format("200601021504")
-	tableName=tableNamePreFix+timeformat[0:len(timeformat)-1]
-	return 
+	timeformat := t.Format("200601021504")
+	tableName = tableNamePreFix + timeformat[0:len(timeformat)-1]
+	return
 }
 
 //TableName retruns temp table name for Invoice details

@@ -23,7 +23,7 @@ var (
 )
 
 func init() {
-	cfg.ReadGcsFile("gs://awacs_config/config.yml")
+	cfg.ReadGcsFile("gs://awacs_config/cloudfunctionconfig.yml")
 }
 
 //SyncFileUpload cloud funtion to upload file
