@@ -44,13 +44,28 @@ func SyncFileUpload(ctx context.Context, e models.GCSEvent) (err error) {
 		log.Println("Calling Stock upload method")
 		var stockObj functions.StockAttr
 		err = stockObj.StockCloudFunction(g, cfg)
-
+		return
 	}
 
 	if strings.Contains(strings.ToLower(e.Bucket), "outstanding") {
 		log.Println("Calling Outstanding upload method")
 		var outstandingObj functions.OutstandingAttar
 		err = outstandingObj.OutstandingCloudFunction(g, cfg)
+		return
+	}
+
+	if strings.Contains(strings.ToLower(e.Bucket), "customer") {
+		log.Println("Calling Customer Master upload method")
+		var customermasterObj functions.CustomerMasterAttar
+		err = customermasterObj.CustomerMasterCloudFunction(g, cfg)
+		return
+	}
+
+	if strings.Contains(strings.ToLower(e.Bucket), "product") {
+		log.Println("Calling Product Master upload method")
+		var productmasterObj functions.ProductMasterAttar
+		err = productmasterObj.ProductMasterCloudFunction(g, cfg)
+		return
 	}
 
 	return
