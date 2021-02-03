@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
@@ -64,7 +65,7 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 				case o.cAttar.colMap["DOCUMENTNUMBER"]:
 					tempOutstanding.DocumentNumber = val
 				case o.cAttar.colMap["DOCUMENTDATE"]:
-					tempOutstanding.DocumentDate, _ = utils.ConvertDate(val)
+					tempOutstanding.DocumentDate = val
 				case o.cAttar.colMap["AMOUNT"]:
 					tempOutstanding.Amount, _ = strconv.ParseFloat(val, 64)
 				case o.cAttar.colMap["ADJUSTEDAMOUNT"]:
@@ -72,27 +73,57 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 				case o.cAttar.colMap["PENDINGAMOUNT"]:
 					tempOutstanding.PendingAmount, _ = strconv.ParseFloat(val, 64)
 				case o.cAttar.colMap["DUEDATE"]:
-					tempOutstanding.DueDate, _ = utils.ConvertDate(val)
+					tempOutstanding.DueDate = val
 				}
-
 			}
 		}
+		tempOutstanding.UserId = g.DistributorCode
 		if flag == 0 {
 			Outstanding = append(Outstanding, tempOutstanding)
 		}
 		flag = 0
 	}
-	recordCount := len(Outstanding)
-	if recordCount > 0 {
 
-		jsonValue, _ := json.Marshal(Outstanding)
+	outstandingMap := make(map[string]models.CustomerOutstanding)
+	for _, val := range Outstanding {
+		key := val.UserId + val.CustomerCode
+		if _, ok := outstandingMap[key]; !ok {
+			var tout models.CustomerOutstanding
+			tout.OutstandingJson = GetJsonstring(val) //`"[{"CustomerCode":"` + val.CustomerCode + `","DocumentNumber":"` + val.DocumentNumber + `","DocumentDate":"` + val.DocumentDate + `","Amount":"` + fmt.Sprintf("%f", val.Amount) + `","PendingAmount":"` + fmt.Sprintf("%f", val.PendingAmount) + `","AdjustedAmount":"` + fmt.Sprintf("%f", val.AdjustedAmount) + `","DueDate":"` + val.DueDate + `"}"`
+			tout.Outstanding = val.PendingAmount
+			tout.UserId = val.UserId
+			tout.CustomerCode = val.CustomerCode
+			tout.LastUpdated = time.Now()
+
+			outstandingMap[key] = tout
+		} else {
+			t, _ := outstandingMap[key]
+			t.OutstandingJson = t.OutstandingJson + "," + GetJsonstring(val) //`",{"CustomerCode":"` + val.CustomerCode + `","DocumentNumber":"` + val.DocumentNumber + `","DocumentDate":"` + val.DocumentDate + `","Amount":"` + fmt.Sprintf("%f", val.Amount) + `","PendingAmount":"` + fmt.Sprintf("%f", val.PendingAmount) + `","AdjustedAmount":"` + fmt.Sprintf("%f", val.AdjustedAmount) + `","DueDate":"` + val.DueDate + `"}]"`
+			t.Outstanding = t.Outstanding + val.PendingAmount
+			t.UserId = val.UserId
+			t.CustomerCode = val.CustomerCode
+			t.LastUpdated = time.Now()
+
+			outstandingMap[key] = t
+		}
+	}
+
+	var customerOutstanding []models.CustomerOutstanding
+	for _, val := range outstandingMap {
+		val.OutstandingJson = "[" + val.OutstandingJson + "]"
+		customerOutstanding = append(customerOutstanding, val)
+	}
+
+	recordCount := len(customerOutstanding)
+	if recordCount > 0 {
+		jsonValue, _ := json.Marshal(customerOutstanding)
 		resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/outstanding", "application/json", bytes.NewBuffer(jsonValue))
 		if err != nil || resp.Status != "200 OK" {
 			fmt.Println("Error while calling request", err)
 
 			// If upload service
 			var d db.DbObj
-			dbPtr, err := d.GetConnection("awacs_smart", cfg)
+			dbPtr, err := d.GetConnection("smartdb", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
@@ -101,13 +132,13 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 				return err
 			}
 
-			dbPtr.AutoMigrate(&models.Outstanding{})
+			dbPtr.AutoMigrate(&models.CustomerOutstanding{})
 			//Insert records to temp table
 			totalRecordCount := recordCount
-			batchSize := bt.GetBatchSize(Outstanding[0])
+			batchSize := bt.GetBatchSize(customerOutstanding[0])
 
 			if totalRecordCount <= batchSize {
-				dbPtr.Save(Outstanding)
+				dbPtr.Save(customerOutstanding)
 			} else {
 				remainingRecords := totalRecordCount
 				updateRecordLastIndex := batchSize
@@ -116,7 +147,7 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 					if remainingRecords < 1 {
 						break
 					}
-					updateStockBatch := Outstanding[startIndex:updateRecordLastIndex]
+					updateStockBatch := customerOutstanding[startIndex:updateRecordLastIndex]
 					dbPtr.Save(updateStockBatch)
 					remainingRecords = remainingRecords - batchSize
 					startIndex = updateRecordLastIndex
@@ -132,5 +163,14 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 		g.GcsClient.MoveObject(g.FileName, "ported/"+g.FileName, "balatestawacs")
 		log.Println("Porting Done :" + g.FileName)
 	}
+	return
+}
+
+//GetJsonstring concat json string
+func GetJsonstring(outstanding models.Outstanding) (jsonString string) {
+	jsonString = `{"CustomerCode":"` + outstanding.CustomerCode + `","DocumentNumber":"` +
+		outstanding.DocumentNumber + `","DocumentDate":"` + outstanding.DocumentDate + `","Amount":"` +
+		fmt.Sprintf("%f", outstanding.Amount) + `","PendingAmount":"` + fmt.Sprintf("%f", outstanding.PendingAmount) +
+		`","AdjustedAmount":"` + fmt.Sprintf("%f", outstanding.AdjustedAmount) + `","DueDate":"` + outstanding.DueDate + `"}`
 	return
 }

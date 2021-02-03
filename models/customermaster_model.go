@@ -6,6 +6,7 @@ import (
 
 //CustomerMaster Table model
 type CustomerMaster struct {
+	UserId        string `gorm:"column:UserId"`
 	Code          string `gorm:"column:Code"`
 	CompanionCode string `gorm:"column:CompanionCode"`
 	Name          string `gorm:"column:Name"`

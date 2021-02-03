@@ -114,6 +114,7 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 				}
 			}
 		}
+		tempProductmaster.UserId=g.DistributorCode
 		if flag == 0 {
 			Productmaster = append(Productmaster, tempProductmaster)
 		}
@@ -121,7 +122,6 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 	}
 	recordCount := len(Productmaster)
 	if recordCount > 0 {
-
 		jsonValue, _ := json.Marshal(Productmaster)
 		resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/productmaster", "application/json", bytes.NewBuffer(jsonValue))
 		if err != nil || resp.Status != "200 OK" {
@@ -129,7 +129,7 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 
 			// If upload service
 			var d db.DbObj
-			dbPtr, err := d.GetConnection("awacs_smart", cfg)
+			dbPtr, err := d.GetConnection("smartdb", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
