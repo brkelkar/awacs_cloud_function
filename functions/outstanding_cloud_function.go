@@ -49,7 +49,9 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			fmt.Println(err)
+			g.ErrorMsg = "Error while reading file"
+			g.LogFileDetails(false)
+			return err
 		}
 		var tempOutstanding models.Outstanding
 
@@ -128,7 +130,8 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
 				log.Println("Porting Error :" + g.FileName)
-
+				g.ErrorMsg = "Error while connecting to db"
+				g.LogFileDetails(false)
 				return err
 			}
 
@@ -138,7 +141,12 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 			batchSize := bt.GetBatchSize(customerOutstanding[0])
 
 			if totalRecordCount <= batchSize {
-				dbPtr.Save(customerOutstanding)
+				err = dbPtr.Save(customerOutstanding).Error
+				if err != nil {
+					g.ErrorMsg = "Error while writing records to db"
+					g.LogFileDetails(false)
+					return err
+				}
 			} else {
 				remainingRecords := totalRecordCount
 				updateRecordLastIndex := batchSize
@@ -148,7 +156,12 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 						break
 					}
 					updateStockBatch := customerOutstanding[startIndex:updateRecordLastIndex]
-					dbPtr.Save(updateStockBatch)
+					err = dbPtr.Save(updateStockBatch).Error
+					if err != nil {
+						g.ErrorMsg = "Error while writing records to db"
+						g.LogFileDetails(false)
+						return err
+					}
 					remainingRecords = remainingRecords - batchSize
 					startIndex = updateRecordLastIndex
 					if remainingRecords < batchSize {
@@ -159,10 +172,13 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 				}
 			}
 		}
-		// If either of the loading is successful move file to ported
-		g.GcsClient.MoveObject(g.FileName, "ported/"+g.FileName, "balatestawacs")
-		log.Println("Porting Done :" + g.FileName)
 	}
+
+	// If either of the loading is successful move file to ported
+	g.GcsClient.MoveObject(g.FileName, "ported/"+g.FileName, "balatestawacs")
+	log.Println("Porting Done :" + g.FileName)
+	g.Records = recordCount
+	g.LogFileDetails(true)
 	return
 }
 

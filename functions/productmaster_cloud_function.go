@@ -52,7 +52,9 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			fmt.Println(err)
+			g.ErrorMsg = "Error while reading file"
+			g.LogFileDetails(false)
+			return err
 		}
 		var tempProductmaster models.ProductMaster
 
@@ -134,7 +136,8 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
 				log.Println("Porting Error :" + g.FileName)
-
+				g.ErrorMsg = "Error while connecting to db"
+				g.LogFileDetails(false)
 				return err
 			}
 
@@ -144,7 +147,12 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 			batchSize := bt.GetBatchSize(Productmaster[0])
 
 			if totalRecordCount <= batchSize {
-				dbPtr.Save(Productmaster)
+				err=dbPtr.Save(Productmaster).Error
+				if err != nil {
+					g.ErrorMsg = "Error while writing records to db"
+					g.LogFileDetails(false)
+					return err
+				}
 			} else {
 				remainingRecords := totalRecordCount
 				updateRecordLastIndex := batchSize
@@ -154,7 +162,12 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 						break
 					}
 					updateProductBatch := Productmaster[startIndex:updateRecordLastIndex]
-					dbPtr.Save(updateProductBatch)
+					err=dbPtr.Save(updateProductBatch).Error
+					if err != nil {
+						g.ErrorMsg = "Error while writing records to db"
+						g.LogFileDetails(false)
+						return err
+					}
 					remainingRecords = remainingRecords - batchSize
 					startIndex = updateRecordLastIndex
 					if remainingRecords < batchSize {
@@ -164,10 +177,13 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 					}
 				}
 			}
-		}
-		// If either of the loading is successful move file to ported
-		g.GcsClient.MoveObject(g.FileName, "ported/productmaster/"+g.FileName, "balatestawacs")
-		log.Println("Porting Done :" + g.FileName)
+		}		
 	}
+
+	// If either of the loading is successful move file to ported
+	g.GcsClient.MoveObject(g.FileName, "ported/productmaster/"+g.FileName, "balatestawacs")
+	log.Println("Porting Done :" + g.FileName)
+	g.Records = recordCount
+	g.LogFileDetails(true)
 	return
 }
