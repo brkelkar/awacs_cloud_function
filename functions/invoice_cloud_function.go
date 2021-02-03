@@ -1,18 +1,10 @@
 package functions
 
 import (
-	"awacs.com/awcacs_cloud_function/models"
-	"awacs.com/awcacs_cloud_function/utils"
-
-	bt "github.com/brkelkar/common_utils/batch"
-	cr "github.com/brkelkar/common_utils/configreader"
-	db "github.com/brkelkar/common_utils/databases"
-	gc "github.com/brkelkar/common_utils/gcsbucketclient"
-
 	"bufio"
-	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,6 +12,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"awacs.com/awcacs_cloud_function/models"
+	"awacs.com/awcacs_cloud_function/utils"
+	bt "github.com/brkelkar/common_utils/batch"
+	cr "github.com/brkelkar/common_utils/configreader"
+	db "github.com/brkelkar/common_utils/databases"
+	gc "github.com/brkelkar/common_utils/gcsbucketclient"
 )
 
 //InvoiceAttr used to hold Invoice file parsing attributes required
@@ -36,6 +35,8 @@ func (i *InvoiceAttr) initInvoice(cfg cr.Config) {
 		i.cAttr.colMap[val] = -1
 	}
 	i.multiLinedistributorMap = getDistributorForMultiLineFile(cfg)
+	apiPath = "/api/invoices"
+	URLPath = utils.GetHostURL(cfg) + apiPath
 
 }
 
@@ -43,12 +44,16 @@ func (i *InvoiceAttr) initInvoice(cfg cr.Config) {
 func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err error) {
 	log.Printf("Starting Invoice file upload for :%v/%v ", g.FilePath, g.FileName)
 	i.initInvoice(cfg)
+	g.FileType = "I"
 	fileSplitSlice := strings.Split(g.FileName, "_")
 	spiltLen := len(fileSplitSlice)
 
 	// Check if file is in correct format or not
 	if !(spiltLen == 7 || spiltLen == 6) {
-		log.Print("Invalid file name")
+
+		g.ErrorMsg = "Invalid file name"
+		g.LogFileDetails(false)
+		return errors.New("Invalid file name")
 	}
 	if spiltLen == 6 {
 		i.developerID = fileSplitSlice[5]
@@ -82,7 +87,8 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			log.Print(err)
+			g.ErrorMsg = "Error while reading file"
+			g.LogFileDetails(false)
 			return err
 		}
 		if _, ok := replaceDistributorCode[g.DistributorCode]; ok {
@@ -219,31 +225,38 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 		}
 		flag = 0
 	}
+
+	//Got final record to write
 	recordCount := len(Invoice)
-	if recordCount > 0 {
+	if recordCount < 0 {
 
 		jsonValue, _ := json.Marshal(Invoice)
-		resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/invoices", "application/json", bytes.NewBuffer(jsonValue))
-		if err != nil || resp.Status != "200 OK" {
-			fmt.Println("Error while calling request", err)
-
-			// If upload service
+		err := utils.WriteToSyncService(URLPath, jsonValue)
+		if err != nil {
+			//Try to write directly to db
 			var d db.DbObj
 			dbPtr, err := d.GetConnection("awacs_smart", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
 				log.Println("Porting Error :" + g.FileName)
-
+				g.ErrorMsg = "Error while connecting to db"
+				g.LogFileDetails(false)
 				return err
 			}
 
 			dbPtr.AutoMigrate(&models.Invoice{})
+
 			//Insert records to temp table
 			totalRecordCount := recordCount
 			batchSize := bt.GetBatchSize(Invoice[0])
 			if totalRecordCount <= batchSize {
-				dbPtr.Save(Invoice)
+				err = dbPtr.Save(Invoice).Error
+				if err != nil {
+					g.ErrorMsg = "Error while writing records to db"
+					g.LogFileDetails(false)
+					return err
+				}
 			} else {
 				remainingRecords := totalRecordCount
 				updateRecordLastIndex := batchSize
@@ -253,9 +266,16 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 						break
 					}
 					updateStockBatch := Invoice[startIndex:updateRecordLastIndex]
-					dbPtr.Save(updateStockBatch)
+
+					err = dbPtr.Save(updateStockBatch).Error
+					if err != nil {
+						g.ErrorMsg = "Error while writing records to db"
+						g.LogFileDetails(false)
+						return err
+					}
 					remainingRecords = remainingRecords - batchSize
 					startIndex = updateRecordLastIndex
+
 					if remainingRecords < batchSize {
 						updateRecordLastIndex = updateRecordLastIndex + remainingRecords
 					} else {
@@ -264,11 +284,13 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 				}
 			}
 		}
-		// If either of the loading is successful move file to ported
-		g.GcsClient.MoveObject(g.FileName, "ported/"+g.FileName, "balatestawacs")
-		log.Println("Porting Done :" + g.FileName)
 	}
-	return
+	// If either of the loading is successful move file to ported
+	g.GcsClient.MoveObject(g.FileName, "ported/"+g.FileName, "balatestawacs")
+	log.Println("Porting Done :" + g.FileName)
+	g.Records = recordCount
+	g.LogFileDetails(true)
+	return nil
 
 }
 

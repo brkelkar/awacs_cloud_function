@@ -1,17 +1,16 @@
 package invoiceupload
 
 import (
+	"context"
+	"log"
+	"strings"
+
 	"awacs.com/awcacs_cloud_function/functions"
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-
-	"context"
-
 	cr "github.com/brkelkar/common_utils/configreader"
 	gc "github.com/brkelkar/common_utils/gcsbucketclient"
-
-	"log"
-	"strings"
+	"github.com/brkelkar/common_utils/logger"
 )
 
 var (
@@ -23,13 +22,14 @@ var (
 )
 
 func init() {
-	cfg.ReadGcsFile("gs://awacs_config/config.yml")
+	cfg.ReadGcsFile("gs://awacs_config/cloud_function_config.yml")
+
 }
 
 //SyncFileUpload cloud funtion to upload file
 func SyncFileUpload(ctx context.Context, e models.GCSEvent) (err error) {
 
-	log.Println("Porting Start File Name = " + e.Name)
+	logger.Info("Porting Start File Name = " + e.Name)
 
 	g := gcsFileAttr.HandleGCSEvent(ctx, e)
 	log.Print(g)

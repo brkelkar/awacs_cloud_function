@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"awacs.com/awcacs_cloud_function/models"
-
 	gc "github.com/brkelkar/common_utils/gcsbucketclient"
+	"github.com/brkelkar/common_utils/logger"
+	"go.uber.org/zap"
 )
 
+//GcsFile gcs file attributes
 type GcsFile struct {
 	FileName        string
 	FilePath        string
@@ -19,6 +21,8 @@ type GcsFile struct {
 	LastUpdateTime  time.Time
 	ProcessingTime  string
 	Records         int
+	FileType        string
+	ErrorMsg        string
 	GcsClient       *gc.GcsBucketClient
 }
 
@@ -39,4 +43,15 @@ func (g *GcsFile) HandleGCSEvent(ctx context.Context, e models.GCSEvent) *GcsFil
 	g.LastUpdateTime = e.Updated
 	g.ProcessingTime = e.Updated.Format("2006-01-02")
 	return g
+}
+
+//LogFileDetails file details logger
+func (g *GcsFile) LogFileDetails(status bool) {
+	logger.Info("CF", zap.String("distributor_code", g.DistributorCode),
+		zap.String("FileName", g.FileName),
+		zap.String("FileType", g.FileType),
+		zap.String("ProcessingTime", g.ProcessingTime),
+		zap.Bool("Proting_status", status),
+		zap.String("ErrorMsg", g.ErrorMsg),
+		zap.Int("record_count", g.Records))
 }
