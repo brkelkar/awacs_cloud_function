@@ -50,7 +50,6 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 
 	// Check if file is in correct format or not
 	if !(spiltLen == 7 || spiltLen == 6) {
-
 		g.ErrorMsg = "Invalid file name"
 		g.LogFileDetails(false)
 		return errors.New("Invalid file name")
@@ -103,11 +102,8 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 		var tempInvoice models.Invoice
 		for index, val := range lineSlice {
 			if flag == 1 {
-
 				i.cAttr.colMap[strings.ToUpper(val)] = index
-
 			} else {
-
 				switch index {
 				case -1:
 					break
@@ -209,11 +205,8 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 					tempInvoice.OrderDate, _ = utils.ConvertDate(val)
 				case i.cAttr.colMap["BARCODE"]:
 					tempInvoice.Barcode = val
-
 				}
-
 			}
-
 		}
 		if flag == 0 {
 			tempInvoice.DeveloperId = i.developerID

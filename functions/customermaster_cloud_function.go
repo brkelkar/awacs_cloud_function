@@ -48,7 +48,8 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			fmt.Println(err)
+			g.ErrorMsg = "Error while reading file"
+			g.LogFileDetails(false)
 		}
 		var tempCustomermaster models.CustomerMaster
 
@@ -104,7 +105,7 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 				}
 			}
 		}
-		tempCustomermaster.UserId=g.DistributorCode
+		tempCustomermaster.UserId = g.DistributorCode
 		if flag == 0 {
 			Customermaster = append(Customermaster, tempCustomermaster)
 		}
@@ -124,7 +125,8 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
 				log.Println("Porting Error :" + g.FileName)
-
+				g.ErrorMsg = "Error while connecting to db"
+				g.LogFileDetails(false)
 				return err
 			}
 
@@ -134,7 +136,13 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 			batchSize := bt.GetBatchSize(Customermaster[0])
 
 			if totalRecordCount <= batchSize {
-				dbPtr.Save(Customermaster)
+				err = dbPtr.Save(Customermaster).Error
+				if err != nil {
+					g.ErrorMsg = "Error while writing records to db"
+					g.LogFileDetails(false)
+					return err
+				}
+
 			} else {
 				remainingRecords := totalRecordCount
 				updateRecordLastIndex := batchSize
@@ -144,7 +152,12 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 						break
 					}
 					updateStockBatch := Customermaster[startIndex:updateRecordLastIndex]
-					dbPtr.Save(updateStockBatch)
+					err = dbPtr.Save(updateStockBatch).Error
+					if err != nil {
+						g.ErrorMsg = "Error while writing records to db"
+						g.LogFileDetails(false)
+						return err
+					}
 					remainingRecords = remainingRecords - batchSize
 					startIndex = updateRecordLastIndex
 					if remainingRecords < batchSize {
@@ -155,9 +168,12 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 				}
 			}
 		}
-		// If either of the loading is successful move file to ported
-		g.GcsClient.MoveObject(g.FileName, "ported/customermaster/"+g.FileName, "balatestawacs")
-		log.Println("Porting Done :" + g.FileName)
 	}
+
+	// If either of the loading is successful move file to ported
+	g.GcsClient.MoveObject(g.FileName, "ported/customermaster/"+g.FileName, "balatestawacs")
+	log.Println("Porting Done :" + g.FileName)
+	g.Records = recordCount
+	g.LogFileDetails(true)
 	return
 }
