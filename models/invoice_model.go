@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -52,7 +51,7 @@ type Invoice struct {
 	NetPurchaseAmount        float64    `gorm:"column:NetPurchaseAmount"`
 	LastTransactionDate      *time.Time `gorm:"column:LastTransactionDate"`
 	ReceivedOn               *time.Time `gorm:"column:ReceivedOn"`
-	BatchId                  string     `gorm:"column:BatchId"`
+	BatchId                  *string    `gorm:"column:BatchId"`
 	EmailPrepared            bool       `gorm:"column:EmailPrepared"`
 	EmailPreparedOn          *time.Time `gorm:"column:EmailPreparedOn"`
 	Taken                    bool       `gorm:"column:Taken"`
@@ -75,16 +74,15 @@ type Invoice struct {
 	Inv_File_Id              float64    `gorm:"column:Inv_File_Id"`
 }
 
-var tableName string
-
-func init() {
-	tableNameInit := "TMP_SMART_INVOICE_"
-	t := time.Now()
-	tableName = fmt.Sprintf("%s%d%02d%02d%d%d%s", tableNameInit, t.Year(), t.Month(), t.Day(), t.Hour(), (t.Minute() / 10), "0")
+func (i *Invoice) getTableName() (tableName string) {
+	tableNamePreFix := "TMP_SMART_INVOICE_"
+	t := time.Now().UTC()
+	timeformat := t.Format("200601021504")
+	tableName = tableNamePreFix + timeformat[0:len(timeformat)-1]
+	return
 }
 
 //TableName retruns temp table name for Invoice details
-func (Invoice) TableName() string {
-
-	return "dbo." + tableName
+func (i Invoice) TableName() string {
+	return "dbo." + i.getTableName()
 }

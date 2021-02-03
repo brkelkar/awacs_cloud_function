@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -12,14 +11,15 @@ type Stocks struct {
 	Closing     float64 `gorm:"column:Closing"`
 }
 
-func getTableName() (tableName string) {
+func (s *Stocks) getTableName() (tableName string) {
 	tableNamePreFix := "TMP_SMART_STOCKS_"
-	t := time.Now()
-	tableName = fmt.Sprintf("%s%d%02d%02d%d%d%s", tableNamePreFix, t.Year(), t.Month(), t.Day(), t.Hour(), (t.Minute() / 5), "0")
-	return
+	t := time.Now().UTC()
+	timeformat:=t.Format("200601021504")
+	tableName=tableNamePreFix+timeformat[0:len(timeformat)-1]
+	return 
 }
 
 //TableName retruns temp table name for Stock table
-func (Stocks) TableName() string {
-	return "dbo." + getTableName()
+func (s Stocks) TableName() string {
+	return "dbo." + s.getTableName()
 }

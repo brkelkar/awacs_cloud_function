@@ -88,7 +88,9 @@ func (d *DbObj) GetConnection(dbName string, cfg cr.Config) (dbPtr *gorm.DB, err
 		cfg.DatabaseConfig.Password,
 	)
 
-	dbPtr, err = gorm.Open(sqlserver.Open(DbMsSQLURL(dbConfig)), &gorm.Config{})
+	dbPtr, err = gorm.Open(sqlserver.Open(DbMsSQLURL(dbConfig)), &gorm.Config{
+		PrepareStmt: true,
+	})
 	return
 }
 
