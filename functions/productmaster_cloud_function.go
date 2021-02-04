@@ -1,13 +1,10 @@
 package functions
 
 import (
-	"bytes"
-	"encoding/csv"
+	"bufio"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -23,7 +20,7 @@ type ProductMasterAttar struct {
 	cAttar CommonAttr
 }
 
-func (o *ProductMasterAttar) initProductMaster() {
+func (o *ProductMasterAttar) initProductMaster(cfg cr.Config) {
 	o.cAttar.colMap = make(map[string]int)
 	o.cAttar.colName = []string{"USERID", "UPC", "PRODUCTCODE", "CODE", "FAVCODE",
 		"PRODUCTNAME", "NAME", "BOXPACK", "CASEPACK", "PRODUCTPACK", "PACK", "COMPANYNAME", "COMPANYCODE",
@@ -34,21 +31,25 @@ func (o *ProductMasterAttar) initProductMaster() {
 	for _, val := range o.cAttar.colName {
 		o.cAttar.colMap[val] = -1
 	}
+
+	apiPath = "/api/productmaster"
+	URLPath = utils.GetHostURL(cfg) + apiPath
 }
 
 //ProductMasterCloudFunction used to load outstanding file to database
 func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr.Config) (err error) {
 	log.Printf("Starting product master file upload for :%v/%v ", g.FilePath, g.FileName)
-
-	o.initProductMaster()
-	reader := csv.NewReader(g.GcsClient.GetReader())
-	reader.Comma = '|'
+	o.initProductMaster(cfg)
+	g.FileType = "P"
+	
+	var reader *bufio.Reader
+	reader = bufio.NewReader(g.GcsClient.GetReader())
+	
 	flag := 1
 	var Productmaster []models.ProductMaster
 
 	for {
-		fileRow, err := reader.Read()
-
+		line, err := reader.ReadString('\n')
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -56,9 +57,10 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 			g.LogFileDetails(false)
 			return err
 		}
+		line = strings.TrimSpace(line)
+		lineSlice := strings.Split(line, "|")
 		var tempProductmaster models.ProductMaster
-
-		for i, val := range fileRow {
+		for i, val := range lineSlice {
 			if flag == 1 {
 				o.cAttar.colMap[strings.ToUpper(val)] = i
 			} else {
@@ -116,19 +118,17 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 				}
 			}
 		}
-		tempProductmaster.UserId=g.DistributorCode
+		tempProductmaster.UserId = g.DistributorCode
 		if flag == 0 {
 			Productmaster = append(Productmaster, tempProductmaster)
 		}
 		flag = 0
 	}
 	recordCount := len(Productmaster)
+	jsonValue, _ := json.Marshal(Productmaster)
 	if recordCount > 0 {
-		jsonValue, _ := json.Marshal(Productmaster)
-		resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/productmaster", "application/json", bytes.NewBuffer(jsonValue))
-		if err != nil || resp.Status != "200 OK" {
-			fmt.Println("Error while calling request", err)
-
+		err = utils.WriteToSyncService(URLPath, jsonValue)
+		if err != nil {
 			// If upload service
 			var d db.DbObj
 			dbPtr, err := d.GetConnection("smartdb", cfg)
@@ -147,7 +147,7 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 			batchSize := bt.GetBatchSize(Productmaster[0])
 
 			if totalRecordCount <= batchSize {
-				err=dbPtr.Save(Productmaster).Error
+				err = dbPtr.Save(Productmaster).Error
 				if err != nil {
 					g.ErrorMsg = "Error while writing records to db"
 					g.LogFileDetails(false)
@@ -162,7 +162,7 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 						break
 					}
 					updateProductBatch := Productmaster[startIndex:updateRecordLastIndex]
-					err=dbPtr.Save(updateProductBatch).Error
+					err = dbPtr.Save(updateProductBatch).Error
 					if err != nil {
 						g.ErrorMsg = "Error while writing records to db"
 						g.LogFileDetails(false)
@@ -177,7 +177,7 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 					}
 				}
 			}
-		}		
+		}
 	}
 
 	// If either of the loading is successful move file to ported

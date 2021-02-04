@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -35,7 +34,7 @@ func (i *InvoiceAttr) initInvoice(cfg cr.Config) {
 		i.cAttr.colMap[val] = -1
 	}
 	i.multiLinedistributorMap = getDistributorForMultiLineFile(cfg)
-	apiPath = "/api/invoices"
+	apiPath = "/api/invoice"
 	URLPath = utils.GetHostURL(cfg) + apiPath
 
 }
@@ -221,11 +220,11 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 
 	//Got final record to write
 	recordCount := len(Invoice)
-	if recordCount < 0 {
-
+	if recordCount > 0 {
 		jsonValue, _ := json.Marshal(Invoice)
 		err := utils.WriteToSyncService(URLPath, jsonValue)
 		if err != nil {
+			log.Println(err)
 			//Try to write directly to db
 			var d db.DbObj
 			dbPtr, err := d.GetConnection("awacs_smart", cfg)
@@ -284,7 +283,6 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 	g.Records = recordCount
 	g.LogFileDetails(true)
 	return nil
-
 }
 
 func getReplaceStrings(distributorCode string) (replace []models.ReplaceStrings, replaceDistributorCode map[string]bool) {
@@ -308,11 +306,9 @@ func getReplaceStrings(distributorCode string) (replace []models.ReplaceStrings,
 			log.Print(err)
 		}
 		var tempReplace models.ReplaceStrings
-		fmt.Println(line)
 
 		tempReplace.DistributorCode, tempReplace.Search_String, tempReplace.Replace_String = line[0], line[1], line[2]
-		fmt.Printf("Distributor code %v", tempReplace.DistributorCode)
-		fmt.Println(replaceDistributorCode)
+
 		replaceDistributorCode = make(map[string]bool)
 		replaceDistributorCode[tempReplace.DistributorCode] = true
 		replace = append(replace, tempReplace)
@@ -321,7 +317,7 @@ func getReplaceStrings(distributorCode string) (replace []models.ReplaceStrings,
 }
 
 func getDistributorForMultiLineFile(cfg cr.Config) (distributorDetail map[string]bool) {
-	requestURL := "http://" + cfg.Server.Host + ":" + strconv.Itoa(cfg.Server.Port) + "/api/distributors"
+	requestURL := utils.GetHostURL(cfg) + "/api/distributors"
 	res, err := http.Get(requestURL)
 	if err != nil {
 		log.Println("Error while getting distributor details " + err.Error())
@@ -336,6 +332,7 @@ func getDistributorForMultiLineFile(cfg cr.Config) (distributorDetail map[string
 	}
 	var distributors []models.Distributors
 	json.Unmarshal(body, &distributors)
+	distributorDetail = make(map[string]bool)
 	for _, val := range distributors {
 		distributorDetail[val.User_StockistCode_cd] = true
 	}

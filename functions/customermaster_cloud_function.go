@@ -1,14 +1,10 @@
 package functions
 
 import (
-	"bytes"
-	"encoding/csv"
+	"bufio"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
-	"net/http"
-	"strconv"
 	"strings"
 
 	"awacs.com/awcacs_cloud_function/models"
@@ -23,37 +19,44 @@ type CustomerMasterAttar struct {
 	cAttar CommonAttr
 }
 
-func (o *CustomerMasterAttar) initCustomerMaster() {
+func (o *CustomerMasterAttar) initCustomerMaster(cfg cr.Config) {
 	o.cAttar.colMap = make(map[string]int)
 	o.cAttar.colName = []string{"CODE", "COMPANIONCODE", "NAME", "ADDRESS1", "ADDRESS2", "ADDRESS3", "CITY", "STATE", "AREA", "PINCODE", "KEYPERSON", "CELL", "PHONE", "EMAIL", "DRUGLIC1", "DRUGLIC2", "DRUGLIC3", "DRUGLIC4", "DRUGLIC5", "DRUGLIC6", "GSTIN"}
 
 	for _, val := range o.cAttar.colName {
 		o.cAttar.colMap[val] = -1
 	}
+
+	apiPath = "/api/customermaster"
+	URLPath = utils.GetHostURL(cfg) + apiPath
 }
 
 //CustomerMasterCloudFunction used to load outstanding file to database
 func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg cr.Config) (err error) {
 	log.Printf("Starting customer master file upload for :%v/%v ", g.FilePath, g.FileName)
-
-	o.initCustomerMaster()
-	reader := csv.NewReader(g.GcsClient.GetReader())
-	reader.Comma = '|'
+	o.initCustomerMaster(cfg)
+	g.FileType = "C"
+	// reader := csv.NewReader(g.GcsClient.GetReader())
+	// reader.Comma = '|'
+	var reader *bufio.Reader
+	reader = bufio.NewReader(g.GcsClient.GetReader())
 	flag := 1
 	var Customermaster []models.CustomerMaster
 
 	for {
-		fileRow, err := reader.Read()
-
+		//fileRow, err := reader.Read()
+		line, err := reader.ReadString('\n')
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			g.ErrorMsg = "Error while reading file"
 			g.LogFileDetails(false)
-		}
+			return err
+		}		
 		var tempCustomermaster models.CustomerMaster
-
-		for i, val := range fileRow {
+		line = strings.TrimSpace(line)
+		lineSlice := strings.Split(line, "|")
+		for i, val := range lineSlice {
 			if flag == 1 {
 				o.cAttar.colMap[strings.ToUpper(val)] = i
 			} else {
@@ -112,12 +115,10 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 		flag = 0
 	}
 	recordCount := len(Customermaster)
+	jsonValue, _ := json.Marshal(Customermaster)
 	if recordCount > 0 {
-		jsonValue, _ := json.Marshal(Customermaster)
-		resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/customermaster", "application/json", bytes.NewBuffer(jsonValue))
-		if err != nil || resp.Status != "200 OK" {
-			fmt.Println("Error while calling request", err)
-
+		err = utils.WriteToSyncService(URLPath, jsonValue)
+		if err != nil {
 			// If upload service
 			var d db.DbObj
 			dbPtr, err := d.GetConnection("smartdb", cfg)

@@ -1,13 +1,11 @@
 package functions
 
 import (
-	"bytes"
-	"encoding/csv"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -24,28 +22,33 @@ type OutstandingAttar struct {
 	cAttar CommonAttr
 }
 
-func (o *OutstandingAttar) initOutstanding() {
+func (o *OutstandingAttar) initOutstanding(cfg cr.Config) {
 	o.cAttar.colMap = make(map[string]int)
 	o.cAttar.colName = []string{"CUSTOMERCODE", "DOCUMENTNUMBER", "DOCUMENTDATE", "AMOUNT", "ADJUSTEDAMOUNT", "PENDINGAMOUNT", "DUEDATE"}
 
 	for _, val := range o.cAttar.colName {
 		o.cAttar.colMap[val] = -1
 	}
+
+	apiPath = "/api/outstanding"
+	URLPath = utils.GetHostURL(cfg) + apiPath
 }
 
 //OutstandingCloudFunction used to load outstanding file to database
 func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Config) (err error) {
 	log.Printf("Starting outstanding file upload for :%v/%v ", g.FilePath, g.FileName)
-
-	o.initOutstanding()
-	reader := csv.NewReader(g.GcsClient.GetReader())
-	reader.Comma = '|'
+	o.initOutstanding(cfg)
+	g.FileType = "O"
+	// reader := csv.NewReader(g.GcsClient.GetReader())
+	// reader.Comma = '|'
+	var reader *bufio.Reader
+	reader = bufio.NewReader(g.GcsClient.GetReader())
 	flag := 1
 	var Outstanding []models.Outstanding
 
 	for {
-		fileRow, err := reader.Read()
-
+		//fileRow, err := reader.Read()
+		line, err := reader.ReadString('\n')
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -54,8 +57,9 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 			return err
 		}
 		var tempOutstanding models.Outstanding
-
-		for i, val := range fileRow {
+		line = strings.TrimSpace(line)
+		lineSlice := strings.Split(line, "|")
+		for i, val := range lineSlice {
 			if flag == 1 {
 				o.cAttar.colMap[strings.ToUpper(val)] = i
 			} else {
@@ -117,12 +121,10 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 	}
 
 	recordCount := len(customerOutstanding)
+	jsonValue, _ := json.Marshal(customerOutstanding)
 	if recordCount > 0 {
-		jsonValue, _ := json.Marshal(customerOutstanding)
-		resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/outstanding", "application/json", bytes.NewBuffer(jsonValue))
-		if err != nil || resp.Status != "200 OK" {
-			fmt.Println("Error while calling request", err)
-
+		err = utils.WriteToSyncService(URLPath, jsonValue)
+		if err != nil {
 			// If upload service
 			var d db.DbObj
 			dbPtr, err := d.GetConnection("smartdb", cfg)

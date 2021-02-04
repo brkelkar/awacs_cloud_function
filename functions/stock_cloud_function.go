@@ -1,7 +1,7 @@
 package functions
 
 import (
-	"encoding/csv"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,15 +37,17 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 	log.Printf("Starting stock file upload for :%v/%v ", g.FilePath, g.FileName)
 	g.FileType = "S"
 	s.stockInit(cfg)
-	reader := csv.NewReader(g.GcsClient.GetReader())
-	reader.Comma = '|'
+	// reader := csv.NewReader(g.GcsClient.GetReader())
+	// reader.Comma = '|'
+	var reader *bufio.Reader
+	reader = bufio.NewReader(g.GcsClient.GetReader())
 	flag := 1
 	var stock []models.Stocks
 	productMap := make(map[string]models.Stocks)
 
 	for {
-		fileRow, err := reader.Read()
-
+		//fileRow, err := reader.Read()
+		line, err := reader.ReadString('\n')
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -53,8 +55,9 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 		}
 		var tempStock models.Stocks
 		var strproductCode string
-
-		for i, val := range fileRow {
+		line = strings.TrimSpace(line)
+		lineSlice := strings.Split(line, "|")
+		for i, val := range lineSlice {
 			if flag == 1 {
 				s.cAttr.colMap[strings.ToUpper(val)] = i
 			} else {
