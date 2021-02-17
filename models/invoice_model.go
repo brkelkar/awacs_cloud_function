@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Invoice model for temp tables
+//Invoice model for temp tables
 type Invoice struct {
 	Id                       int64      `gorm:"primaryKey;column:Id"`
 	DeveloperId              string     `gorm:"column:DeveloperId"`
