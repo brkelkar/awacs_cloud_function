@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ type GcsFile struct {
 	ProcessingTime  string
 	Records         int
 	FileType        string
+	FileSize        int
 	ErrorMsg        string
 	GcsClient       *gc.GcsBucketClient
 }
@@ -35,6 +37,7 @@ func (g *GcsFile) HandleGCSEvent(ctx context.Context, e models.GCSEvent) *GcsFil
 	if !g.GcsClient.GetLastStatus() {
 		log.Print("Error while reading file")
 	}
+	g.FileSize, _ = strconv.Atoi(e.Size)
 	g.FilePath = e.Bucket + "/" + e.Name
 	g.FileName = e.Name
 	g.BucketName = e.Bucket
@@ -49,6 +52,7 @@ func (g *GcsFile) HandleGCSEvent(ctx context.Context, e models.GCSEvent) *GcsFil
 func (g *GcsFile) LogFileDetails(status bool) {
 	logger.Info("CF", zap.String("distributor_code", g.DistributorCode),
 		zap.String("FileName", g.FileName),
+		zap.String("FileSize", g.FileName),
 		zap.String("FileType", g.FileType),
 		zap.String("ProcessingTime", g.ProcessingTime),
 		zap.Bool("Proting_status", status),
