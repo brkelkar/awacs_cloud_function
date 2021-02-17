@@ -1,21 +1,18 @@
 package functions
 
 import (
-	"bytes"
-	"encoding/csv"
+	"bufio"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-	bt "github.com/brkelkar/common_utils/batch"
+	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
-	db "github.com/brkelkar/common_utils/databases"
+	//db "github.com/brkelkar/common_utils/databases"
 )
 
 //ProductMasterAttar as model
@@ -23,7 +20,7 @@ type ProductMasterAttar struct {
 	cAttar CommonAttr
 }
 
-func (o *ProductMasterAttar) initProductMaster() {
+func (o *ProductMasterAttar) initProductMaster(cfg cr.Config) {
 	o.cAttar.colMap = make(map[string]int)
 	o.cAttar.colName = []string{"USERID", "UPC", "PRODUCTCODE", "CODE", "FAVCODE",
 		"PRODUCTNAME", "NAME", "BOXPACK", "CASEPACK", "PRODUCTPACK", "PACK", "COMPANYNAME", "COMPANYCODE",
@@ -34,31 +31,34 @@ func (o *ProductMasterAttar) initProductMaster() {
 	for _, val := range o.cAttar.colName {
 		o.cAttar.colMap[val] = -1
 	}
+
+	apiPath = "/api/productmaster"
+	URLPath = utils.GetHostURL(cfg) + apiPath
 }
 
 //ProductMasterCloudFunction used to load outstanding file to database
 func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr.Config) (err error) {
 	log.Printf("Starting product master file upload for :%v/%v ", g.FilePath, g.FileName)
+	o.initProductMaster(cfg)
+	g.FileType = "P"
 
-	o.initProductMaster()
-	reader := csv.NewReader(g.GcsClient.GetReader())
-	reader.Comma = '|'
+	var reader *bufio.Reader
+	reader = bufio.NewReader(g.GcsClient.GetReader())
+
 	flag := 1
 	var Productmaster []models.ProductMaster
 
 	for {
-		fileRow, err := reader.Read()
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
 			g.ErrorMsg = "Error while reading file"
 			g.LogFileDetails(false)
 			return err
 		}
+		line = strings.TrimSpace(line)
+		lineSlice := strings.Split(line, "|")
 		var tempProductmaster models.ProductMaster
-
-		for i, val := range fileRow {
+		for i, val := range lineSlice {
 			if flag == 1 {
 				o.cAttar.colMap[strings.ToUpper(val)] = i
 			} else {
@@ -116,22 +116,24 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 				}
 			}
 		}
-		tempProductmaster.UserId=g.DistributorCode
+		tempProductmaster.UserId = g.DistributorCode
 		if flag == 0 {
 			Productmaster = append(Productmaster, tempProductmaster)
 		}
 		flag = 0
+
+		if err == io.EOF {
+			break
+		}
 	}
 	recordCount := len(Productmaster)
+	jsonValue, _ := json.Marshal(Productmaster)
 	if recordCount > 0 {
-		jsonValue, _ := json.Marshal(Productmaster)
-		resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/productmaster", "application/json", bytes.NewBuffer(jsonValue))
-		if err != nil || resp.Status != "200 OK" {
-			fmt.Println("Error while calling request", err)
-
+		err = utils.WriteToSyncService(URLPath, jsonValue)
+		if err != nil {
 			// If upload service
-			var d db.DbObj
-			dbPtr, err := d.GetConnection("smartdb", cfg)
+			// var d db.DbObj
+			// dbPtr, err := d.GetConnection("smartdb", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
@@ -141,43 +143,43 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 				return err
 			}
 
-			dbPtr.AutoMigrate(&models.ProductMaster{})
-			//Insert records to temp table
-			totalRecordCount := recordCount
-			batchSize := bt.GetBatchSize(Productmaster[0])
+			// dbPtr.AutoMigrate(&models.ProductMaster{})
+			// //Insert records to temp table
+			// totalRecordCount := recordCount
+			// batchSize := bt.GetBatchSize(Productmaster[0])
 
-			if totalRecordCount <= batchSize {
-				err=dbPtr.Save(Productmaster).Error
-				if err != nil {
-					g.ErrorMsg = "Error while writing records to db"
-					g.LogFileDetails(false)
-					return err
-				}
-			} else {
-				remainingRecords := totalRecordCount
-				updateRecordLastIndex := batchSize
-				startIndex := 0
-				for {
-					if remainingRecords < 1 {
-						break
-					}
-					updateProductBatch := Productmaster[startIndex:updateRecordLastIndex]
-					err=dbPtr.Save(updateProductBatch).Error
-					if err != nil {
-						g.ErrorMsg = "Error while writing records to db"
-						g.LogFileDetails(false)
-						return err
-					}
-					remainingRecords = remainingRecords - batchSize
-					startIndex = updateRecordLastIndex
-					if remainingRecords < batchSize {
-						updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-					} else {
-						updateRecordLastIndex = updateRecordLastIndex + batchSize
-					}
-				}
-			}
-		}		
+			// if totalRecordCount <= batchSize {
+			// 	err = dbPtr.Save(Productmaster).Error
+			// 	if err != nil {
+			// 		g.ErrorMsg = "Error while writing records to db"
+			// 		g.LogFileDetails(false)
+			// 		return err
+			// 	}
+			// } else {
+			// 	remainingRecords := totalRecordCount
+			// 	updateRecordLastIndex := batchSize
+			// 	startIndex := 0
+			// 	for {
+			// 		if remainingRecords < 1 {
+			// 			break
+			// 		}
+			// 		updateProductBatch := Productmaster[startIndex:updateRecordLastIndex]
+			// 		err = dbPtr.Save(updateProductBatch).Error
+			// 		if err != nil {
+			// 			g.ErrorMsg = "Error while writing records to db"
+			// 			g.LogFileDetails(false)
+			// 			return err
+			// 		}
+			// 		remainingRecords = remainingRecords - batchSize
+			// 		startIndex = updateRecordLastIndex
+			// 		if remainingRecords < batchSize {
+			// 			updateRecordLastIndex = updateRecordLastIndex + remainingRecords
+			// 		} else {
+			// 			updateRecordLastIndex = updateRecordLastIndex + batchSize
+			// 		}
+			// 	}
+			// }
+		}
 	}
 
 	// If either of the loading is successful move file to ported

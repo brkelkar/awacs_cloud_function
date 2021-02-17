@@ -25,7 +25,7 @@ type ProductMaster struct {
 	HSN             string     `gorm:"column:HSN"`
 	Content         string     `gorm:"column:Content"`
 	IsActive        bool       `gorm:"column:IsActive"`
-	LastUpdatedTime *time.Time `gorm:"column:LastUpdatedTime"`
+	LastUpdatedTime *time.Time `gorm:"type:datetime;column:LastUpdatedTime"`
 	Closing         float64    `gorm:"column:Closing"`
 	MinDiscount     float64    `gorm:"column:MinDiscount"`
 	MaxDiscount     float64    `gorm:"column:MaxDiscount"`

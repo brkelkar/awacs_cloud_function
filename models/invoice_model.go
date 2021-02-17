@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Invoice model for temp tables
+//Invoice model for temp tables
 type Invoice struct {
 	Id                       int64      `gorm:"primaryKey;column:Id"`
 	DeveloperId              string     `gorm:"column:DeveloperId"`
@@ -12,7 +12,7 @@ type Invoice struct {
 	BillNumber               string     `gorm:"column:BillNumber"`
 	BillDate                 *time.Time `gorm:"type:datetime;column:BillDate"`
 	ChallanNumber            string     `gorm:"column:ChallanNumber"`
-	ChallanDate              *time.Time `gorm:"column:ChallanDate"`
+	ChallanDate              *time.Time `gorm:"type:datetime;column:ChallanDate"`
 	BuyerId                  string     `gorm:"column:BuyerId"`
 	Reason                   string     `gorm:"column:Reason"`
 	BuyerProductCode         string     `gorm:"column:BuyerProductCode"`
@@ -22,7 +22,7 @@ type Invoice struct {
 	SupplierProductPack      string     `gorm:"column:SupplierProductPack"`
 	MRP                      float64    `gorm:"column:MRP"`
 	Batch                    string     `gorm:"column:Batch"`
-	Expiry                   *time.Time `gorm:"column:Expiry"`
+	Expiry                   *time.Time `gorm:"type:datetime;column:Expiry"`
 	Quantity                 float64    `gorm:"column:Quantity"`
 	FreeQuantity             float64    `gorm:"column:FreeQuantity"`
 	Rate                     float64    `gorm:"column:Rate"`
@@ -44,18 +44,18 @@ type Invoice struct {
 	IGST                     float64    `gorm:"column:IGST"`
 	BaseSchemeQuantity       float64    `gorm:"column:BaseSchemeQuantity"`
 	BaseSchemeFreeQuantity   float64    `gorm:"column:BaseSchemeFreeQuantity"`
-	PaymentDueDate           *time.Time `gorm:"column:PaymentDueDate"`
+	PaymentDueDate           *time.Time `gorm:"type:datetime;column:PaymentDueDate"`
 	Remarks                  string     `gorm:"column:Remarks"`
 	CompanyName              string     `gorm:"column:CompanyName"`
 	NetInvoiceAmount         float64    `gorm:"column:NetInvoiceAmount"`
 	NetPurchaseAmount        float64    `gorm:"column:NetPurchaseAmount"`
-	LastTransactionDate      *time.Time `gorm:"column:LastTransactionDate"`
-	ReceivedOn               *time.Time `gorm:"column:ReceivedOn"`
-	BatchId                  *string    `gorm:"column:BatchId"`
+	LastTransactionDate      *time.Time `gorm:"type:datetime;column:LastTransactionDate"`
+	ReceivedOn               *time.Time `gorm:"type:datetime;column:ReceivedOn"`
+	BatchId                  *string    `gorm:"type:uniqueidentifier;column:BatchId"`
 	EmailPrepared            bool       `gorm:"column:EmailPrepared"`
-	EmailPreparedOn          *time.Time `gorm:"column:EmailPreparedOn"`
+	EmailPreparedOn          *time.Time `gorm:"type:datetime;column:EmailPreparedOn"`
 	Taken                    bool       `gorm:"column:Taken"`
-	TakenOn                  *time.Time `gorm:"column:TakenOn"`
+	TakenOn                  *time.Time `gorm:"type:datetime;column:TakenOn"`
 	LastHostAddress          string     `gorm:"column:LastHostAddress"`
 	WorkspaceId              int64      `gorm:"column:WorkspaceId"`
 	SGSTAmount               float64    `gorm:"column:SGSTAmount"`
@@ -66,11 +66,11 @@ type Invoice struct {
 	TaxableAmount            float64    `gorm:"column:TaxableAmount"`
 	HSN                      string     `gorm:"column:HSN"`
 	OrderNumber              string     `gorm:"column:OrderNumber"`
-	OrderDate                *time.Time `gorm:"column:OrderDate"`
+	OrderDate                *time.Time `gorm:"type:datetime;column:OrderDate"`
 	Barcode                  string     `gorm:"column:Barcode"`
-	CreatedDate              *time.Time `gorm:"column:CreatedDate"`
+	CreatedDate              *time.Time `gorm:"type:datetime;column:CreatedDate"`
 	File_Path                string     `gorm:"column:File_Path"`
-	File_Received_Dttm       *time.Time `gorm:"column:File_Received_Dttm"`
+	File_Received_Dttm       *time.Time `gorm:"type:datetime;column:File_Received_Dttm"`
 	Inv_File_Id              float64    `gorm:"column:Inv_File_Id"`
 }
 
