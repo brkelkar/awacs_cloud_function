@@ -51,7 +51,7 @@ type Invoice struct {
 	NetPurchaseAmount        float64    `gorm:"column:NetPurchaseAmount"`
 	LastTransactionDate      *time.Time `gorm:"column:LastTransactionDate"`
 	ReceivedOn               *time.Time `gorm:"column:ReceivedOn"`
-	BatchId                  *string    `gorm:"column:BatchId"`
+	BatchId                  *string    `gorm:"type:uniqueidentifier;column:BatchId"`
 	EmailPrepared            bool       `gorm:"column:EmailPrepared"`
 	EmailPreparedOn          *time.Time `gorm:"column:EmailPreparedOn"`
 	Taken                    bool       `gorm:"column:Taken"`

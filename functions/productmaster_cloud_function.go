@@ -10,9 +10,9 @@ import (
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-	bt "github.com/brkelkar/common_utils/batch"
+	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
-	db "github.com/brkelkar/common_utils/databases"
+	//db "github.com/brkelkar/common_utils/databases"
 )
 
 //ProductMasterAttar as model
@@ -41,18 +41,16 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 	log.Printf("Starting product master file upload for :%v/%v ", g.FilePath, g.FileName)
 	o.initProductMaster(cfg)
 	g.FileType = "P"
-	
+
 	var reader *bufio.Reader
 	reader = bufio.NewReader(g.GcsClient.GetReader())
-	
+
 	flag := 1
 	var Productmaster []models.ProductMaster
 
 	for {
 		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		if err != nil && err != io.EOF {
 			g.ErrorMsg = "Error while reading file"
 			g.LogFileDetails(false)
 			return err
@@ -123,6 +121,10 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 			Productmaster = append(Productmaster, tempProductmaster)
 		}
 		flag = 0
+
+		if err == io.EOF {
+			break
+		}
 	}
 	recordCount := len(Productmaster)
 	jsonValue, _ := json.Marshal(Productmaster)
@@ -130,8 +132,8 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 		err = utils.WriteToSyncService(URLPath, jsonValue)
 		if err != nil {
 			// If upload service
-			var d db.DbObj
-			dbPtr, err := d.GetConnection("smartdb", cfg)
+			// var d db.DbObj
+			// dbPtr, err := d.GetConnection("smartdb", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
@@ -141,42 +143,42 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 				return err
 			}
 
-			dbPtr.AutoMigrate(&models.ProductMaster{})
-			//Insert records to temp table
-			totalRecordCount := recordCount
-			batchSize := bt.GetBatchSize(Productmaster[0])
+			// dbPtr.AutoMigrate(&models.ProductMaster{})
+			// //Insert records to temp table
+			// totalRecordCount := recordCount
+			// batchSize := bt.GetBatchSize(Productmaster[0])
 
-			if totalRecordCount <= batchSize {
-				err = dbPtr.Save(Productmaster).Error
-				if err != nil {
-					g.ErrorMsg = "Error while writing records to db"
-					g.LogFileDetails(false)
-					return err
-				}
-			} else {
-				remainingRecords := totalRecordCount
-				updateRecordLastIndex := batchSize
-				startIndex := 0
-				for {
-					if remainingRecords < 1 {
-						break
-					}
-					updateProductBatch := Productmaster[startIndex:updateRecordLastIndex]
-					err = dbPtr.Save(updateProductBatch).Error
-					if err != nil {
-						g.ErrorMsg = "Error while writing records to db"
-						g.LogFileDetails(false)
-						return err
-					}
-					remainingRecords = remainingRecords - batchSize
-					startIndex = updateRecordLastIndex
-					if remainingRecords < batchSize {
-						updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-					} else {
-						updateRecordLastIndex = updateRecordLastIndex + batchSize
-					}
-				}
-			}
+			// if totalRecordCount <= batchSize {
+			// 	err = dbPtr.Save(Productmaster).Error
+			// 	if err != nil {
+			// 		g.ErrorMsg = "Error while writing records to db"
+			// 		g.LogFileDetails(false)
+			// 		return err
+			// 	}
+			// } else {
+			// 	remainingRecords := totalRecordCount
+			// 	updateRecordLastIndex := batchSize
+			// 	startIndex := 0
+			// 	for {
+			// 		if remainingRecords < 1 {
+			// 			break
+			// 		}
+			// 		updateProductBatch := Productmaster[startIndex:updateRecordLastIndex]
+			// 		err = dbPtr.Save(updateProductBatch).Error
+			// 		if err != nil {
+			// 			g.ErrorMsg = "Error while writing records to db"
+			// 			g.LogFileDetails(false)
+			// 			return err
+			// 		}
+			// 		remainingRecords = remainingRecords - batchSize
+			// 		startIndex = updateRecordLastIndex
+			// 		if remainingRecords < batchSize {
+			// 			updateRecordLastIndex = updateRecordLastIndex + remainingRecords
+			// 		} else {
+			// 			updateRecordLastIndex = updateRecordLastIndex + batchSize
+			// 		}
+			// 	}
+			// }
 		}
 	}
 

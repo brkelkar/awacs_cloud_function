@@ -11,9 +11,10 @@ import (
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-	bt "github.com/brkelkar/common_utils/batch"
+
+	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
-	db "github.com/brkelkar/common_utils/databases"
+	//db "github.com/brkelkar/common_utils/databases"
 )
 
 //StockAttr used for update Stock file in database
@@ -48,9 +49,7 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 	for {
 		//fileRow, err := reader.Read()
 		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		if err != nil && err != io.EOF {
 			fmt.Println(err)
 		}
 		var tempStock models.Stocks
@@ -86,6 +85,10 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 			}
 		}
 		flag = 0
+
+		if err == io.EOF {
+			break
+		}
 	}
 
 	for _, val := range productMap {
@@ -96,8 +99,8 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 	if recordCount > 0 {
 		err = utils.WriteToSyncService(URLPath, jsonValue)
 		if err != nil {
-			var d db.DbObj
-			dbPtr, err := d.GetConnection("smartdb", cfg)
+			//var d db.DbObj
+			//dbPtr, err := d.GetConnection("smartdb", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balaawacstest")
@@ -105,39 +108,39 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 				g.LogFileDetails(false)
 				return err
 			}
-			dbPtr.AutoMigrate(&models.Stocks{})
+			// dbPtr.AutoMigrate(&models.Stocks{})
 
-			totalRecordCount := recordCount
-			batchSize := bt.GetBatchSize(stock[0])
-			if totalRecordCount <= batchSize {
-				err = dbPtr.Save(stock).Error
-				if err != nil {
-					g.LogFileDetails(false)
-					return err
-				}
-			} else {
-				remainingRecords := totalRecordCount
-				updateRecordLastIndex := batchSize
-				startIndex := 0
-				for {
-					if remainingRecords < 1 {
-						break
-					}
-					updateStockBatch := stock[startIndex:updateRecordLastIndex]
-					err = dbPtr.Save(updateStockBatch).Error
-					if err != nil {
-						g.LogFileDetails(false)
-						return err
-					}
-					remainingRecords = remainingRecords - batchSize
-					startIndex = updateRecordLastIndex
-					if remainingRecords < batchSize {
-						updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-					} else {
-						updateRecordLastIndex = updateRecordLastIndex + batchSize
-					}
-				}
-			}
+			// totalRecordCount := recordCount
+			// batchSize := bt.GetBatchSize(stock[0])
+			// if totalRecordCount <= batchSize {
+			// 	err = dbPtr.Save(stock).Error
+			// 	if err != nil {
+			// 		g.LogFileDetails(false)
+			// 		return err
+			// 	}
+			// } else {
+			// 	// remainingRecords := totalRecordCount
+			// 	// updateRecordLastIndex := batchSize
+			// 	// startIndex := 0
+			// 	// for {
+			// 	// 	if remainingRecords < 1 {
+			// 	// 		break
+			// 	// 	}
+			// 	// 	updateStockBatch := stock[startIndex:updateRecordLastIndex]
+			// 	// 	err = dbPtr.Save(updateStockBatch).Error
+			// 	// 	if err != nil {
+			// 	// 		g.LogFileDetails(false)
+			// 	// 		return err
+			// 	// 	}
+			// 	// 	remainingRecords = remainingRecords - batchSize
+			// 	// 	startIndex = updateRecordLastIndex
+			// 	// 	if remainingRecords < batchSize {
+			// 	// 		updateRecordLastIndex = updateRecordLastIndex + remainingRecords
+			// 	// 	} else {
+			// 	// 		updateRecordLastIndex = updateRecordLastIndex + batchSize
+			// 	// 	}
+			// 	// }
+			// }
 		}
 	}
 	// If either of the loading is successful move file to ported

@@ -9,9 +9,10 @@ import (
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-	bt "github.com/brkelkar/common_utils/batch"
+
+	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
-	db "github.com/brkelkar/common_utils/databases"
+	//db "github.com/brkelkar/common_utils/databases"
 )
 
 //CustomerMasterAttar as model
@@ -21,7 +22,9 @@ type CustomerMasterAttar struct {
 
 func (o *CustomerMasterAttar) initCustomerMaster(cfg cr.Config) {
 	o.cAttar.colMap = make(map[string]int)
-	o.cAttar.colName = []string{"CODE", "COMPANIONCODE", "NAME", "ADDRESS1", "ADDRESS2", "ADDRESS3", "CITY", "STATE", "AREA", "PINCODE", "KEYPERSON", "CELL", "PHONE", "EMAIL", "DRUGLIC1", "DRUGLIC2", "DRUGLIC3", "DRUGLIC4", "DRUGLIC5", "DRUGLIC6", "GSTIN"}
+	o.cAttar.colName = []string{"CODE", "COMPANIONCODE", "NAME", "ADDRESS1", "ADDRESS2", "ADDRESS3", "CITY",
+		"STATE", "AREA", "PINCODE", "KEYPERSON", "CELL", "PHONE", "EMAIL", "DRUGLIC1", "DRUGLIC2", "DRUGLIC3",
+		"DRUGLIC4", "DRUGLIC5", "DRUGLIC6", "GSTIN", "PAN", "SALESMANCODE", "ISLOCKED", "ISLOCKEDBILLING", "ALLOWDELIVERY"}
 
 	for _, val := range o.cAttar.colName {
 		o.cAttar.colMap[val] = -1
@@ -42,17 +45,14 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 	reader = bufio.NewReader(g.GcsClient.GetReader())
 	flag := 1
 	var Customermaster []models.CustomerMaster
-
 	for {
 		//fileRow, err := reader.Read()
 		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		if err != nil && err != io.EOF {
 			g.ErrorMsg = "Error while reading file"
 			g.LogFileDetails(false)
 			return err
-		}		
+		}
 		var tempCustomermaster models.CustomerMaster
 		line = strings.TrimSpace(line)
 		lineSlice := strings.Split(line, "|")
@@ -105,6 +105,16 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 					tempCustomermaster.DrugLic6 = val
 				case o.cAttar.colMap["GSTIN"]:
 					tempCustomermaster.GSTIN = val
+				case o.cAttar.colMap["PAN"]:
+					tempCustomermaster.PAN = val
+				case o.cAttar.colMap["SALESMANCODE"]:
+					tempCustomermaster.SalesmanCode = val
+				case o.cAttar.colMap["ISLOCKED"]:
+					tempCustomermaster.IsLocked = val
+				case o.cAttar.colMap["ISLOCKEDBILLING"]:
+					tempCustomermaster.IsLockedBilling = val
+				case o.cAttar.colMap["ALLOWDELIVERY"]:
+					tempCustomermaster.AllowDelivery = val
 				}
 			}
 		}
@@ -113,6 +123,10 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 			Customermaster = append(Customermaster, tempCustomermaster)
 		}
 		flag = 0
+
+		if err == io.EOF {
+			break
+		}
 	}
 	recordCount := len(Customermaster)
 	jsonValue, _ := json.Marshal(Customermaster)
@@ -120,8 +134,8 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 		err = utils.WriteToSyncService(URLPath, jsonValue)
 		if err != nil {
 			// If upload service
-			var d db.DbObj
-			dbPtr, err := d.GetConnection("smartdb", cfg)
+			// var d db.DbObj
+			// dbPtr, err := d.GetConnection("smartdb", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
@@ -131,43 +145,43 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 				return err
 			}
 
-			dbPtr.AutoMigrate(&models.CustomerMaster{})
-			//Insert records to temp table
-			totalRecordCount := recordCount
-			batchSize := bt.GetBatchSize(Customermaster[0])
+			// dbPtr.AutoMigrate(&models.CustomerMaster{})
+			// //Insert records to temp table
+			// totalRecordCount := recordCount
+			// batchSize := bt.GetBatchSize(Customermaster[0])
 
-			if totalRecordCount <= batchSize {
-				err = dbPtr.Save(Customermaster).Error
-				if err != nil {
-					g.ErrorMsg = "Error while writing records to db"
-					g.LogFileDetails(false)
-					return err
-				}
+			// if totalRecordCount <= batchSize {
+			// 	err = dbPtr.Save(Customermaster).Error
+			// 	if err != nil {
+			// 		g.ErrorMsg = "Error while writing records to db"
+			// 		g.LogFileDetails(false)
+			// 		return err
+			// 	}
 
-			} else {
-				remainingRecords := totalRecordCount
-				updateRecordLastIndex := batchSize
-				startIndex := 0
-				for {
-					if remainingRecords < 1 {
-						break
-					}
-					updateStockBatch := Customermaster[startIndex:updateRecordLastIndex]
-					err = dbPtr.Save(updateStockBatch).Error
-					if err != nil {
-						g.ErrorMsg = "Error while writing records to db"
-						g.LogFileDetails(false)
-						return err
-					}
-					remainingRecords = remainingRecords - batchSize
-					startIndex = updateRecordLastIndex
-					if remainingRecords < batchSize {
-						updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-					} else {
-						updateRecordLastIndex = updateRecordLastIndex + batchSize
-					}
-				}
-			}
+			// } else {
+			// 	remainingRecords := totalRecordCount
+			// 	updateRecordLastIndex := batchSize
+			// 	startIndex := 0
+			// 	for {
+			// 		if remainingRecords < 1 {
+			// 			break
+			// 		}
+			// 		updateStockBatch := Customermaster[startIndex:updateRecordLastIndex]
+			// 		err = dbPtr.Save(updateStockBatch).Error
+			// 		if err != nil {
+			// 			g.ErrorMsg = "Error while writing records to db"
+			// 			g.LogFileDetails(false)
+			// 			return err
+			// 		}
+			// 		remainingRecords = remainingRecords - batchSize
+			// 		startIndex = updateRecordLastIndex
+			// 		if remainingRecords < batchSize {
+			// 			updateRecordLastIndex = updateRecordLastIndex + remainingRecords
+			// 		} else {
+			// 			updateRecordLastIndex = updateRecordLastIndex + batchSize
+			// 		}
+			// 	}
+			// }
 		}
 	}
 

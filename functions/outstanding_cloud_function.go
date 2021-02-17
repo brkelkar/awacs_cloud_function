@@ -12,9 +12,10 @@ import (
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-	bt "github.com/brkelkar/common_utils/batch"
+
+	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
-	db "github.com/brkelkar/common_utils/databases"
+	//db "github.com/brkelkar/common_utils/databases"
 )
 
 //OutstandingAttar as model
@@ -49,9 +50,7 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 	for {
 		//fileRow, err := reader.Read()
 		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		if err != nil && err != io.EOF {
 			g.ErrorMsg = "Error while reading file"
 			g.LogFileDetails(false)
 			return err
@@ -88,6 +87,10 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 			Outstanding = append(Outstanding, tempOutstanding)
 		}
 		flag = 0
+
+		if err == io.EOF {
+			break
+		}
 	}
 
 	outstandingMap := make(map[string]models.CustomerOutstanding)
@@ -126,8 +129,8 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 		err = utils.WriteToSyncService(URLPath, jsonValue)
 		if err != nil {
 			// If upload service
-			var d db.DbObj
-			dbPtr, err := d.GetConnection("smartdb", cfg)
+			// var d db.DbObj
+			// dbPtr, err := d.GetConnection("smartdb", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
@@ -137,42 +140,42 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 				return err
 			}
 
-			dbPtr.AutoMigrate(&models.CustomerOutstanding{})
-			//Insert records to temp table
-			totalRecordCount := recordCount
-			batchSize := bt.GetBatchSize(customerOutstanding[0])
+			// dbPtr.AutoMigrate(&models.CustomerOutstanding{})
+			// //Insert records to temp table
+			// totalRecordCount := recordCount
+			// batchSize := bt.GetBatchSize(customerOutstanding[0])
 
-			if totalRecordCount <= batchSize {
-				err = dbPtr.Save(customerOutstanding).Error
-				if err != nil {
-					g.ErrorMsg = "Error while writing records to db"
-					g.LogFileDetails(false)
-					return err
-				}
-			} else {
-				remainingRecords := totalRecordCount
-				updateRecordLastIndex := batchSize
-				startIndex := 0
-				for {
-					if remainingRecords < 1 {
-						break
-					}
-					updateStockBatch := customerOutstanding[startIndex:updateRecordLastIndex]
-					err = dbPtr.Save(updateStockBatch).Error
-					if err != nil {
-						g.ErrorMsg = "Error while writing records to db"
-						g.LogFileDetails(false)
-						return err
-					}
-					remainingRecords = remainingRecords - batchSize
-					startIndex = updateRecordLastIndex
-					if remainingRecords < batchSize {
-						updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-					} else {
-						updateRecordLastIndex = updateRecordLastIndex + batchSize
-					}
-				}
-			}
+			// if totalRecordCount <= batchSize {
+			// 	err = dbPtr.Save(customerOutstanding).Error
+			// 	if err != nil {
+			// 		g.ErrorMsg = "Error while writing records to db"
+			// 		g.LogFileDetails(false)
+			// 		return err
+			// 	}
+			// } else {
+			// 	remainingRecords := totalRecordCount
+			// 	updateRecordLastIndex := batchSize
+			// 	startIndex := 0
+			// 	for {
+			// 		if remainingRecords < 1 {
+			// 			break
+			// 		}
+			// 		updateStockBatch := customerOutstanding[startIndex:updateRecordLastIndex]
+			// 		err = dbPtr.Save(updateStockBatch).Error
+			// 		if err != nil {
+			// 			g.ErrorMsg = "Error while writing records to db"
+			// 			g.LogFileDetails(false)
+			// 			return err
+			// 		}
+			// 		remainingRecords = remainingRecords - batchSize
+			// 		startIndex = updateRecordLastIndex
+			// 		if remainingRecords < batchSize {
+			// 			updateRecordLastIndex = updateRecordLastIndex + remainingRecords
+			// 		} else {
+			// 			updateRecordLastIndex = updateRecordLastIndex + batchSize
+			// 		}
+			// 	}
+			// }
 		}
 	}
 

@@ -23,6 +23,7 @@ type GcsFile struct {
 	Records         int
 	FileType        string
 	ErrorMsg        string
+	Source          string
 	GcsClient       *gc.GcsBucketClient
 }
 
@@ -39,8 +40,9 @@ func (g *GcsFile) HandleGCSEvent(ctx context.Context, e models.GCSEvent) *GcsFil
 	g.FileName = e.Name
 	g.BucketName = e.Bucket
 	fileSplitSlice := strings.Split(e.Name, "/")
-	g.DistributorCode = fileSplitSlice[0]
+	g.DistributorCode = fileSplitSlice[1]
 	g.LastUpdateTime = e.Updated
+	g.Source = fileSplitSlice[0]
 	g.ProcessingTime = e.Updated.Format("2006-01-02")
 	return g
 }
@@ -53,5 +55,6 @@ func (g *GcsFile) LogFileDetails(status bool) {
 		zap.String("ProcessingTime", g.ProcessingTime),
 		zap.Bool("Proting_status", status),
 		zap.String("ErrorMsg", g.ErrorMsg),
+		zap.String("Source", g.Source),
 		zap.Int("record_count", g.Records))
 }

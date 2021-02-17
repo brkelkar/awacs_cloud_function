@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/csv"
 	"encoding/json"
-	"errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -14,9 +13,10 @@ import (
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-	bt "github.com/brkelkar/common_utils/batch"
+
+	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
-	db "github.com/brkelkar/common_utils/databases"
+	//db "github.com/brkelkar/common_utils/databases"
 	gc "github.com/brkelkar/common_utils/gcsbucketclient"
 )
 
@@ -47,12 +47,12 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 	fileSplitSlice := strings.Split(g.FileName, "_")
 	spiltLen := len(fileSplitSlice)
 
-	// Check if file is in correct format or not
-	if !(spiltLen == 7 || spiltLen == 6) {
-		g.ErrorMsg = "Invalid file name"
-		g.LogFileDetails(false)
-		return errors.New("Invalid file name")
-	}
+	// // Check if file is in correct format or not
+	// if !(spiltLen == 7 || spiltLen == 6) {
+	// 	g.ErrorMsg = "Invalid file name"
+	// 	g.LogFileDetails(false)
+	// 	return errors.New("Invalid file name")
+	// }
 	if spiltLen == 6 {
 		i.developerID = fileSplitSlice[5]
 	}
@@ -67,7 +67,6 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 	//This code will handle these type of files by replaceing \n \r with
 	// "" and then identify new line by distributor code
 	if _, ok := i.multiLinedistributorMap[g.DistributorCode]; ok {
-
 		data, _ := ioutil.ReadAll(g.GcsClient.GetReader())
 		content := string(data)
 		content = strings.ReplaceAll(content, "\n", "")
@@ -82,9 +81,7 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 	// Start reading file line by line
 	for {
 		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		if err != nil && err != io.EOF {
 			g.ErrorMsg = "Error while reading file"
 			g.LogFileDetails(false)
 			return err
@@ -216,6 +213,10 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 			Invoice = append(Invoice, tempInvoice)
 		}
 		flag = 0
+
+		if err == io.EOF {
+			break
+		}
 	}
 
 	//Got final record to write
@@ -226,8 +227,8 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 		if err != nil {
 			log.Println(err)
 			//Try to write directly to db
-			var d db.DbObj
-			dbPtr, err := d.GetConnection("awacs_smart", cfg)
+			// var d db.DbObj
+			// dbPtr, err := d.GetConnection("awacs_smart", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
@@ -237,44 +238,44 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 				return err
 			}
 
-			dbPtr.AutoMigrate(&models.Invoice{})
+			// dbPtr.AutoMigrate(&models.Invoice{})
 
-			//Insert records to temp table
-			totalRecordCount := recordCount
-			batchSize := bt.GetBatchSize(Invoice[0])
-			if totalRecordCount <= batchSize {
-				err = dbPtr.Save(Invoice).Error
-				if err != nil {
-					g.ErrorMsg = "Error while writing records to db"
-					g.LogFileDetails(false)
-					return err
-				}
-			} else {
-				remainingRecords := totalRecordCount
-				updateRecordLastIndex := batchSize
-				startIndex := 0
-				for {
-					if remainingRecords < 1 {
-						break
-					}
-					updateStockBatch := Invoice[startIndex:updateRecordLastIndex]
+			// //Insert records to temp table
+			// totalRecordCount := recordCount
+			// batchSize := bt.GetBatchSize(Invoice[0])
+			// if totalRecordCount <= batchSize {
+			// 	err = dbPtr.Save(Invoice).Error
+			// 	if err != nil {
+			// 		g.ErrorMsg = "Error while writing records to db"
+			// 		g.LogFileDetails(false)
+			// 		return err
+			// 	}
+			// } else {
+			// 	remainingRecords := totalRecordCount
+			// 	updateRecordLastIndex := batchSize
+			// 	startIndex := 0
+			// 	for {
+			// 		if remainingRecords < 1 {
+			// 			break
+			// 		}
+			// 		updateStockBatch := Invoice[startIndex:updateRecordLastIndex]
 
-					err = dbPtr.Save(updateStockBatch).Error
-					if err != nil {
-						g.ErrorMsg = "Error while writing records to db"
-						g.LogFileDetails(false)
-						return err
-					}
-					remainingRecords = remainingRecords - batchSize
-					startIndex = updateRecordLastIndex
+			// 		err = dbPtr.Save(updateStockBatch).Error
+			// 		if err != nil {
+			// 			g.ErrorMsg = "Error while writing records to db"
+			// 			g.LogFileDetails(false)
+			// 			return err
+			// 		}
+			// 		remainingRecords = remainingRecords - batchSize
+			// 		startIndex = updateRecordLastIndex
 
-					if remainingRecords < batchSize {
-						updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-					} else {
-						updateRecordLastIndex = updateRecordLastIndex + batchSize
-					}
-				}
-			}
+			// 		if remainingRecords < batchSize {
+			// 			updateRecordLastIndex = updateRecordLastIndex + remainingRecords
+			// 		} else {
+			// 			updateRecordLastIndex = updateRecordLastIndex + batchSize
+			// 		}
+			// 	}
+			// }
 		}
 	}
 	// If either of the loading is successful move file to ported
