@@ -1,22 +1,21 @@
 package functions
 
 import (
-	"bytes"
-	"encoding/csv"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-	bt "github.com/brkelkar/common_utils/batch"
+
+	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
-	db "github.com/brkelkar/common_utils/databases"
+	//db "github.com/brkelkar/common_utils/databases"
 )
 
 //OutstandingAttar as model
@@ -24,38 +23,42 @@ type OutstandingAttar struct {
 	cAttar CommonAttr
 }
 
-func (o *OutstandingAttar) initOutstanding() {
+func (o *OutstandingAttar) initOutstanding(cfg cr.Config) {
 	o.cAttar.colMap = make(map[string]int)
 	o.cAttar.colName = []string{"CUSTOMERCODE", "DOCUMENTNUMBER", "DOCUMENTDATE", "AMOUNT", "ADJUSTEDAMOUNT", "PENDINGAMOUNT", "DUEDATE"}
 
 	for _, val := range o.cAttar.colName {
 		o.cAttar.colMap[val] = -1
 	}
+
+	apiPath = "/api/outstanding"
+	URLPath = utils.GetHostURL(cfg) + apiPath
 }
 
 //OutstandingCloudFunction used to load outstanding file to database
 func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Config) (err error) {
 	log.Printf("Starting outstanding file upload for :%v/%v ", g.FilePath, g.FileName)
-
-	o.initOutstanding()
-	reader := csv.NewReader(g.GcsClient.GetReader())
-	reader.Comma = '|'
+	o.initOutstanding(cfg)
+	g.FileType = "O"
+	// reader := csv.NewReader(g.GcsClient.GetReader())
+	// reader.Comma = '|'
+	var reader *bufio.Reader
+	reader = bufio.NewReader(g.GcsClient.GetReader())
 	flag := 1
 	var Outstanding []models.Outstanding
 
 	for {
-		fileRow, err := reader.Read()
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
+		//fileRow, err := reader.Read()
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
 			g.ErrorMsg = "Error while reading file"
 			g.LogFileDetails(false)
 			return err
 		}
 		var tempOutstanding models.Outstanding
-
-		for i, val := range fileRow {
+		line = strings.TrimSpace(line)
+		lineSlice := strings.Split(line, "|")
+		for i, val := range lineSlice {
 			if flag == 1 {
 				o.cAttar.colMap[strings.ToUpper(val)] = i
 			} else {
@@ -84,6 +87,10 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 			Outstanding = append(Outstanding, tempOutstanding)
 		}
 		flag = 0
+
+		if err == io.EOF {
+			break
+		}
 	}
 
 	outstandingMap := make(map[string]models.CustomerOutstanding)
@@ -117,15 +124,13 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 	}
 
 	recordCount := len(customerOutstanding)
+	jsonValue, _ := json.Marshal(customerOutstanding)
 	if recordCount > 0 {
-		jsonValue, _ := json.Marshal(customerOutstanding)
-		resp, err := http.Post("http://"+cfg.Server.Host+":"+strconv.Itoa(cfg.Server.Port)+"/api/outstanding", "application/json", bytes.NewBuffer(jsonValue))
-		if err != nil || resp.Status != "200 OK" {
-			fmt.Println("Error while calling request", err)
-
+		err = utils.WriteToSyncService(URLPath, jsonValue)
+		if err != nil {
 			// If upload service
-			var d db.DbObj
-			dbPtr, err := d.GetConnection("smartdb", cfg)
+			// var d db.DbObj
+			// dbPtr, err := d.GetConnection("smartdb", cfg)
 			if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
@@ -135,42 +140,42 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 				return err
 			}
 
-			dbPtr.AutoMigrate(&models.CustomerOutstanding{})
-			//Insert records to temp table
-			totalRecordCount := recordCount
-			batchSize := bt.GetBatchSize(customerOutstanding[0])
+			// dbPtr.AutoMigrate(&models.CustomerOutstanding{})
+			// //Insert records to temp table
+			// totalRecordCount := recordCount
+			// batchSize := bt.GetBatchSize(customerOutstanding[0])
 
-			if totalRecordCount <= batchSize {
-				err = dbPtr.Save(customerOutstanding).Error
-				if err != nil {
-					g.ErrorMsg = "Error while writing records to db"
-					g.LogFileDetails(false)
-					return err
-				}
-			} else {
-				remainingRecords := totalRecordCount
-				updateRecordLastIndex := batchSize
-				startIndex := 0
-				for {
-					if remainingRecords < 1 {
-						break
-					}
-					updateStockBatch := customerOutstanding[startIndex:updateRecordLastIndex]
-					err = dbPtr.Save(updateStockBatch).Error
-					if err != nil {
-						g.ErrorMsg = "Error while writing records to db"
-						g.LogFileDetails(false)
-						return err
-					}
-					remainingRecords = remainingRecords - batchSize
-					startIndex = updateRecordLastIndex
-					if remainingRecords < batchSize {
-						updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-					} else {
-						updateRecordLastIndex = updateRecordLastIndex + batchSize
-					}
-				}
-			}
+			// if totalRecordCount <= batchSize {
+			// 	err = dbPtr.Save(customerOutstanding).Error
+			// 	if err != nil {
+			// 		g.ErrorMsg = "Error while writing records to db"
+			// 		g.LogFileDetails(false)
+			// 		return err
+			// 	}
+			// } else {
+			// 	remainingRecords := totalRecordCount
+			// 	updateRecordLastIndex := batchSize
+			// 	startIndex := 0
+			// 	for {
+			// 		if remainingRecords < 1 {
+			// 			break
+			// 		}
+			// 		updateStockBatch := customerOutstanding[startIndex:updateRecordLastIndex]
+			// 		err = dbPtr.Save(updateStockBatch).Error
+			// 		if err != nil {
+			// 			g.ErrorMsg = "Error while writing records to db"
+			// 			g.LogFileDetails(false)
+			// 			return err
+			// 		}
+			// 		remainingRecords = remainingRecords - batchSize
+			// 		startIndex = updateRecordLastIndex
+			// 		if remainingRecords < batchSize {
+			// 			updateRecordLastIndex = updateRecordLastIndex + remainingRecords
+			// 		} else {
+			// 			updateRecordLastIndex = updateRecordLastIndex + batchSize
+			// 		}
+			// 	}
+			// }
 		}
 	}
 
