@@ -52,7 +52,7 @@ func (g *GcsFile) HandleGCSEvent(ctx context.Context, e models.GCSEvent) *GcsFil
 func (g *GcsFile) LogFileDetails(status bool) {
 	logger.Info("CF", zap.String("distributor_code", g.DistributorCode),
 		zap.String("FileName", g.FileName),
-		zap.String("FileSize", g.FileName),
+		zap.Int("FileSize", g.FileSize),
 		zap.String("FileType", g.FileType),
 		zap.String("ProcessingTime", g.ProcessingTime),
 		zap.Bool("Proting_status", status),
