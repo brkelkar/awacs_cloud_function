@@ -101,13 +101,13 @@ func (s *StockAttr) StockCloudFunction(g *utils.GcsFile, cfg cr.Config) (err err
 		if err != nil {
 			//var d db.DbObj
 			//dbPtr, err := d.GetConnection("smartdb", cfg)
-			if err != nil {
-				log.Print(err)
-				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balaawacstest")
-				log.Println("Porting Error :" + g.FileName)
-				g.LogFileDetails(false)
-				return err
-			}
+			// if err != nil {
+			log.Print(err)
+			g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balaawacstest")
+			log.Println("Porting Error :" + g.FileName)
+			g.LogFileDetails(false)
+			//return err
+			// }
 			// dbPtr.AutoMigrate(&models.Stocks{})
 
 			// totalRecordCount := recordCount

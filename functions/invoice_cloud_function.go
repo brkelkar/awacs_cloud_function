@@ -225,61 +225,15 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 		jsonValue, _ := json.Marshal(Invoice)
 		err := utils.WriteToSyncService(URLPath, jsonValue)
 		if err != nil {
-			log.Println(err)
-			//Try to write directly to db
-			// var d db.DbObj
-			// dbPtr, err := d.GetConnection("awacs_smart", cfg)
-			if err != nil {
-				log.Print(err)
-				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
-				log.Println("Porting Error :" + g.FileName)
-				g.ErrorMsg = "Error while connecting to db"
-				g.LogFileDetails(false)
-				return err
-			}
-
-			// dbPtr.AutoMigrate(&models.Invoice{})
-
-			// //Insert records to temp table
-			// totalRecordCount := recordCount
-			// batchSize := bt.GetBatchSize(Invoice[0])
-			// if totalRecordCount <= batchSize {
-			// 	err = dbPtr.Save(Invoice).Error
-			// 	if err != nil {
-			// 		g.ErrorMsg = "Error while writing records to db"
-			// 		g.LogFileDetails(false)
-			// 		return err
-			// 	}
-			// } else {
-			// 	remainingRecords := totalRecordCount
-			// 	updateRecordLastIndex := batchSize
-			// 	startIndex := 0
-			// 	for {
-			// 		if remainingRecords < 1 {
-			// 			break
-			// 		}
-			// 		updateStockBatch := Invoice[startIndex:updateRecordLastIndex]
-
-			// 		err = dbPtr.Save(updateStockBatch).Error
-			// 		if err != nil {
-			// 			g.ErrorMsg = "Error while writing records to db"
-			// 			g.LogFileDetails(false)
-			// 			return err
-			// 		}
-			// 		remainingRecords = remainingRecords - batchSize
-			// 		startIndex = updateRecordLastIndex
-
-			// 		if remainingRecords < batchSize {
-			// 			updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-			// 		} else {
-			// 			updateRecordLastIndex = updateRecordLastIndex + batchSize
-			// 		}
-			// 	}
-			// }
+			log.Println(err)			
+			g.GcsClient.MoveObject(g.FileName, g.FileName, "awacserrorinvoice")
+			log.Println("Porting Error :" + g.FileName)
+			g.LogFileDetails(false)
+			return err			
 		}
 	}
 	// If either of the loading is successful move file to ported
-	g.GcsClient.MoveObject(g.FileName, "ported/"+g.FileName, "balatestawacs")
+	g.GcsClient.MoveObject(g.FileName, g.FileName, "awacsportedinvoice")
 	log.Println("Porting Done :" + g.FileName)
 	g.Records = recordCount
 	g.LogFileDetails(true)

@@ -11,7 +11,7 @@ import (
 func WriteToSyncService(URLPath string, payload []byte) (err error) {
 
 	resp, err := http.Post(URLPath, "application/json", bytes.NewBuffer(payload))
-	log.Println(resp)
+	//log.Println(resp)
 	if err != nil {
 		log.Println(err)
 		return

@@ -136,14 +136,14 @@ func (o *CustomerMasterAttar) CustomerMasterCloudFunction(g *utils.GcsFile, cfg 
 			// If upload service
 			// var d db.DbObj
 			// dbPtr, err := d.GetConnection("smartdb", cfg)
-			if err != nil {
+			//if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
 				log.Println("Porting Error :" + g.FileName)
-				g.ErrorMsg = "Error while connecting to db"
+				//g.ErrorMsg = "Error while connecting to db"
 				g.LogFileDetails(false)
-				return err
-			}
+				//return err
+			//}
 
 			// dbPtr.AutoMigrate(&models.CustomerMaster{})
 			// //Insert records to temp table
