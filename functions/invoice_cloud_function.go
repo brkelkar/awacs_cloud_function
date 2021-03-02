@@ -46,13 +46,7 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 	g.FileType = "I"
 	fileSplitSlice := strings.Split(g.FileName, "_")
 	spiltLen := len(fileSplitSlice)
-
-	// // Check if file is in correct format or not
-	// if !(spiltLen == 7 || spiltLen == 6) {
-	// 	g.ErrorMsg = "Invalid file name"
-	// 	g.LogFileDetails(false)
-	// 	return errors.New("Invalid file name")
-	// }
+	
 	if spiltLen == 6 {
 		i.developerID = fileSplitSlice[5]
 	}
@@ -104,11 +98,11 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 				case -1:
 					break
 				case i.cAttr.colMap["BILLNUMBER"]:
-					tempInvoice.BillNumber = val
+					tempInvoice.BillNumber =strings.TrimSpace(val) 
 				case i.cAttr.colMap["BILLDATE"]:
 					tempInvoice.BillDate, _ = utils.ConvertDate(val)
 				case i.cAttr.colMap["CHALLANNUMBER"]:
-					tempInvoice.ChallanNumber = val
+					tempInvoice.ChallanNumber = strings.TrimSpace(val) 
 				case i.cAttr.colMap["CHALLANDATE"]:
 					tempInvoice.ChallanDate, _ = utils.ConvertDate(val)
 				case i.cAttr.colMap["BUYERCODE"]:
@@ -206,10 +200,8 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 		}
 		if flag == 0 {
 			tempInvoice.DeveloperId = i.developerID
-			tempInvoice.File_Path = g.FilePath
-			tempInvoice.File_Received_Dttm, _ = utils.ConvertDate(g.ProcessingTime)
+			tempInvoice.File_Received_Dttm = &g.LastUpdateTime
 			tempInvoice.SupplierId = g.DistributorCode
-			tempInvoice.Inv_File_Id = -1
 			Invoice = append(Invoice, tempInvoice)
 		}
 		flag = 0

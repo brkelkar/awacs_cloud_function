@@ -50,8 +50,8 @@ type Invoice struct {
 	NetInvoiceAmount         float64    `gorm:"column:NetInvoiceAmount"`
 	NetPurchaseAmount        float64    `gorm:"column:NetPurchaseAmount"`
 	LastTransactionDate      *time.Time `gorm:"type:datetime;column:LastTransactionDate"`
-	ReceivedOn               *time.Time `gorm:"type:datetime;column:ReceivedOn"`
-	BatchId                  *string    `gorm:"type:uniqueidentifier;column:BatchId"`
+	//ReceivedOn               *time.Time `gorm:"type:datetime;column:ReceivedOn"`
+	//BatchId                  *string    `gorm:"type:uniqueidentifier;column:BatchId"`
 	EmailPrepared            bool       `gorm:"column:EmailPrepared"`
 	EmailPreparedOn          *time.Time `gorm:"type:datetime;column:EmailPreparedOn"`
 	Taken                    bool       `gorm:"column:Taken"`
@@ -69,13 +69,13 @@ type Invoice struct {
 	OrderDate                *time.Time `gorm:"type:datetime;column:OrderDate"`
 	Barcode                  string     `gorm:"column:Barcode"`
 	CreatedDate              *time.Time `gorm:"type:datetime;column:CreatedDate"`
-	File_Path                string     `gorm:"column:File_Path"`
+	//File_Path                string     `gorm:"column:File_Path"`
 	File_Received_Dttm       *time.Time `gorm:"type:datetime;column:File_Received_Dttm"`
-	Inv_File_Id              float64    `gorm:"column:Inv_File_Id"`
+	//Inv_File_Id              float64    `gorm:"column:Inv_File_Id"`
 }
 
 func (i *Invoice) getTableName() (tableName string) {
-	tableNamePreFix := "TMP_SMART_INVOICE_"
+	tableNamePreFix := "TEMP_INVOICES_SMART_"
 	t := time.Now().UTC()
 	timeformat := t.Format("200601021504")
 	tableName = tableNamePreFix + timeformat[0:len(timeformat)-1]

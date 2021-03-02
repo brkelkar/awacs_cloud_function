@@ -23,14 +23,11 @@ var (
 
 func init() {
 	cfg.ReadGcsFile("gs://awacs_config/cloud_function_config.yml")
-
 }
 
 //SyncFileUpload cloud funtion to upload file
 func SyncFileUpload(ctx context.Context, e models.GCSEvent) (err error) {
-
 	logger.Info("Porting Start File Name = " + e.Name)
-
 	g := gcsFileAttr.HandleGCSEvent(ctx, e)
 	if strings.Contains(strings.ToLower(e.Bucket), "invoice") {
 		log.Println("Calling Invoice upload method")
