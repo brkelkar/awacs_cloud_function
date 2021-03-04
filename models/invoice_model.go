@@ -52,25 +52,25 @@ type Invoice struct {
 	LastTransactionDate      *time.Time `gorm:"type:datetime;column:LastTransactionDate"`
 	//ReceivedOn               *time.Time `gorm:"type:datetime;column:ReceivedOn"`
 	//BatchId                  *string    `gorm:"type:uniqueidentifier;column:BatchId"`
-	EmailPrepared            bool       `gorm:"column:EmailPrepared"`
-	EmailPreparedOn          *time.Time `gorm:"type:datetime;column:EmailPreparedOn"`
-	Taken                    bool       `gorm:"column:Taken"`
-	TakenOn                  *time.Time `gorm:"type:datetime;column:TakenOn"`
-	LastHostAddress          string     `gorm:"column:LastHostAddress"`
-	WorkspaceId              int64      `gorm:"column:WorkspaceId"`
-	SGSTAmount               float64    `gorm:"column:SGSTAmount"`
-	CGSTAmount               float64    `gorm:"column:CGSTAmount"`
-	IGSTAmount               float64    `gorm:"column:IGSTAmount"`
-	Cess                     float64    `gorm:"column:Cess"`
-	CessAmount               float64    `gorm:"column:CessAmount"`
-	TaxableAmount            float64    `gorm:"column:TaxableAmount"`
-	HSN                      string     `gorm:"column:HSN"`
-	OrderNumber              string     `gorm:"column:OrderNumber"`
-	OrderDate                *time.Time `gorm:"type:datetime;column:OrderDate"`
-	Barcode                  string     `gorm:"column:Barcode"`
-	CreatedDate              *time.Time `gorm:"type:datetime;column:CreatedDate"`
+	//EmailPrepared            bool       `gorm:"column:EmailPrepared"`
+	//EmailPreparedOn          *time.Time `gorm:"type:datetime;column:EmailPreparedOn"`
+	//Taken           bool       `gorm:"column:Taken"`
+	//TakenOn         *time.Time `gorm:"type:datetime;column:TakenOn"`
+	//LastHostAddress string     `gorm:"column:LastHostAddress"`
+	WorkspaceId   int64      `gorm:"column:WorkspaceId"`
+	SGSTAmount    float64    `gorm:"column:SGSTAmount"`
+	CGSTAmount    float64    `gorm:"column:CGSTAmount"`
+	IGSTAmount    float64    `gorm:"column:IGSTAmount"`
+	Cess          float64    `gorm:"column:Cess"`
+	CessAmount    float64    `gorm:"column:CessAmount"`
+	TaxableAmount float64    `gorm:"column:TaxableAmount"`
+	HSN           string     `gorm:"column:HSN"`
+	OrderNumber   string     `gorm:"column:OrderNumber"`
+	OrderDate     *time.Time `gorm:"type:datetime;column:OrderDate"`
+	//Barcode         string     `gorm:"column:Barcode"`
+	//CreatedDate     *time.Time `gorm:"type:datetime;column:CreatedDate"`
 	//File_Path                string     `gorm:"column:File_Path"`
-	File_Received_Dttm       *time.Time `gorm:"type:datetime;column:File_Received_Dttm"`
+	File_Received_Dttm *time.Time `gorm:"type:datetime;column:File_Received_Dttm"`
 	//Inv_File_Id              float64    `gorm:"column:Inv_File_Id"`
 }
 
