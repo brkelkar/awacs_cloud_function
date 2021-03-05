@@ -12,7 +12,6 @@ import (
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
-
 	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
 	//db "github.com/brkelkar/common_utils/databases"
@@ -132,12 +131,12 @@ func (o *OutstandingAttar) OutstandingCloudFunction(g *utils.GcsFile, cfg cr.Con
 			// var d db.DbObj
 			// dbPtr, err := d.GetConnection("smartdb", cfg)
 			//if err != nil {
-				log.Print(err)
-				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
-				log.Println("Porting Error :" + g.FileName)
-				//g.ErrorMsg = "Error while connecting to db"
-				g.LogFileDetails(false)
-				//return err
+			log.Print(err)
+			g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
+			log.Println("Porting Error :" + g.FileName)
+			//g.ErrorMsg = "Error while connecting to db"
+			g.LogFileDetails(false)
+			//return err
 			//}
 
 			// dbPtr.AutoMigrate(&models.CustomerOutstanding{})
