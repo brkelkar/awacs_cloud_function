@@ -29,7 +29,7 @@ type InvoiceAttr struct {
 
 func (i *InvoiceAttr) initInvoice(cfg cr.Config) {
 	i.cAttr.colMap = make(map[string]int)
-	i.cAttr.colName = []string{"USERID", "BILLNUMBER", "BILLDATE", "CHALLANNUMBER", "CHALLANDATE", "BUYERCODE", "REASON", "COMPANYNAME", "UPC", "PRODUCTCODE", "MRP", "BATCH", "EXPIRY", "QUANTITY", "FREEQUANTITY", "RATE", "AMOUNT", "DISCOUNT", "DISCOUNTAMOUNT", "ADDLSCHEME", "ADDLSCHEMEAMOUNT", "ADDLDISCOUNT", "ADDLDISCOUNTAMOUNT", "DEDUCTABLEBEFOREDISCOUNT", "MRPINCLUSIVETAX", "VATAPPLICATION", "VAT", "ADDLTAX", "CST", "SGST", "CGST", "IGST", "BASESCHEMEQUANTITY", "BASESCHEMEFREEQUANTITY", "NETINVOICEAMOUNT", "PAYMENTDUEDATE", "REMARKS", "SAVEDATE", "SYNDATE", "SYNCDATE", "PRODUCTNAME", "PRODUCTPACK", "EMONTH", "EXPMONTH", "CESS", "CESSAMOUNT", "SGSTAMOUNT", "CGSTAMOUNT", "IGSTAMOUNT", "TAXABLEAMOUNT", "HSN", "BARCODE", "ORDERNUMBER", "ORDERDATE", "LASTTRANSACTIONDATE"}
+	i.cAttr.colName = []string{"USERID", "BILLNUMBER", "BILLDATE", "CHALLANNUMBER", "CHALLANDATE", "BUYERCODE", "REASON", "COMPANYNAME", "UPC", "PRODUCTCODE", "MRP", "BATCH", "EXPIRY", "QUANTITY", "FREEQUANTITY", "RATE", "AMOUNT", "DISCOUNT", "DISCOUNTAMOUNT", "ADDLSCHEME", "ADDLSCHEMEAMOUNT", "ADDLDISCOUNT", "ADDLDISCOUNTAMOUNT", "DEDUCTABLEBEFOREDISCOUNT", "MRPINCLUSIVETAX", "VATAPPLICATION", "VAT", "ADDLTAX", "CST", "SGST", "CGST", "IGST", "BASESCHEMEQUANTITY", "BASESCHEMEFREEQUANTITY", "NETINVOICEAMOUNT", "PAYMENTDUEDATE", "REMARKS", "SAVEDATE", "SYNDATE", "SYNCDATE", "PRODUCTNAME", "PRODUCTPACK", "EMONTH", "EXPMONTH", "CESS", "CESSAMOUNT", "SGSTAMOUNT", "CGSTAMOUNT", "IGSTAMOUNT", "TAXABLEAMOUNT", "HSN", "ORDERNUMBER", "ORDERDATE", "LASTTRANSACTIONDATE"}
 	for _, val := range i.cAttr.colName {
 		i.cAttr.colMap[val] = -1
 	}
@@ -47,12 +47,6 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 	fileSplitSlice := strings.Split(g.FileName, "_")
 	spiltLen := len(fileSplitSlice)
 
-	// // Check if file is in correct format or not
-	// if !(spiltLen == 7 || spiltLen == 6) {
-	// 	g.ErrorMsg = "Invalid file name"
-	// 	g.LogFileDetails(false)
-	// 	return errors.New("Invalid file name")
-	// }
 	if spiltLen == 6 {
 		i.developerID = fileSplitSlice[5]
 	}
@@ -104,11 +98,11 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 				case -1:
 					break
 				case i.cAttr.colMap["BILLNUMBER"]:
-					tempInvoice.BillNumber = val
+					tempInvoice.BillNumber = strings.TrimSpace(val)
 				case i.cAttr.colMap["BILLDATE"]:
 					tempInvoice.BillDate, _ = utils.ConvertDate(val)
 				case i.cAttr.colMap["CHALLANNUMBER"]:
-					tempInvoice.ChallanNumber = val
+					tempInvoice.ChallanNumber = strings.TrimSpace(val)
 				case i.cAttr.colMap["CHALLANDATE"]:
 					tempInvoice.ChallanDate, _ = utils.ConvertDate(val)
 				case i.cAttr.colMap["BUYERCODE"]:
@@ -199,17 +193,15 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 					tempInvoice.OrderNumber = val
 				case i.cAttr.colMap["ORDERDATE"]:
 					tempInvoice.OrderDate, _ = utils.ConvertDate(val)
-				case i.cAttr.colMap["BARCODE"]:
-					tempInvoice.Barcode = val
+					// case i.cAttr.colMap["BARCODE"]:
+					// 	tempInvoice.Barcode = val
 				}
 			}
 		}
 		if flag == 0 {
 			tempInvoice.DeveloperId = i.developerID
-			tempInvoice.File_Path = g.FilePath
-			tempInvoice.File_Received_Dttm, _ = utils.ConvertDate(g.ProcessingTime)
+			tempInvoice.File_Received_Dttm = &g.LastUpdateTime
 			tempInvoice.SupplierId = g.DistributorCode
-			tempInvoice.Inv_File_Id = -1
 			Invoice = append(Invoice, tempInvoice)
 		}
 		flag = 0
@@ -226,60 +218,14 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 		err := utils.WriteToSyncService(URLPath, jsonValue)
 		if err != nil {
 			log.Println(err)
-			//Try to write directly to db
-			// var d db.DbObj
-			// dbPtr, err := d.GetConnection("awacs_smart", cfg)
-			if err != nil {
-				log.Print(err)
-				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
-				log.Println("Porting Error :" + g.FileName)
-				g.ErrorMsg = "Error while connecting to db"
-				g.LogFileDetails(false)
-				return err
-			}
-
-			// dbPtr.AutoMigrate(&models.Invoice{})
-
-			// //Insert records to temp table
-			// totalRecordCount := recordCount
-			// batchSize := bt.GetBatchSize(Invoice[0])
-			// if totalRecordCount <= batchSize {
-			// 	err = dbPtr.Save(Invoice).Error
-			// 	if err != nil {
-			// 		g.ErrorMsg = "Error while writing records to db"
-			// 		g.LogFileDetails(false)
-			// 		return err
-			// 	}
-			// } else {
-			// 	remainingRecords := totalRecordCount
-			// 	updateRecordLastIndex := batchSize
-			// 	startIndex := 0
-			// 	for {
-			// 		if remainingRecords < 1 {
-			// 			break
-			// 		}
-			// 		updateStockBatch := Invoice[startIndex:updateRecordLastIndex]
-
-			// 		err = dbPtr.Save(updateStockBatch).Error
-			// 		if err != nil {
-			// 			g.ErrorMsg = "Error while writing records to db"
-			// 			g.LogFileDetails(false)
-			// 			return err
-			// 		}
-			// 		remainingRecords = remainingRecords - batchSize
-			// 		startIndex = updateRecordLastIndex
-
-			// 		if remainingRecords < batchSize {
-			// 			updateRecordLastIndex = updateRecordLastIndex + remainingRecords
-			// 		} else {
-			// 			updateRecordLastIndex = updateRecordLastIndex + batchSize
-			// 		}
-			// 	}
-			// }
+			g.GcsClient.MoveObject(g.FileName, g.FileName, "awacserrorinvoice")
+			log.Println("Porting Error :" + g.FileName)
+			g.LogFileDetails(false)
+			return err
 		}
 	}
 	// If either of the loading is successful move file to ported
-	g.GcsClient.MoveObject(g.FileName, "ported/"+g.FileName, "balatestawacs")
+	g.GcsClient.MoveObject(g.FileName, g.FileName, "awacsportedinvoice")
 	log.Println("Porting Done :" + g.FileName)
 	g.Records = recordCount
 	g.LogFileDetails(true)

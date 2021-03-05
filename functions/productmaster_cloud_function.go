@@ -82,6 +82,9 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 				case o.cAttar.colMap["PACK"], o.cAttar.colMap["PRODUCTPACK"]:
 					tempProductmaster.Pack = val
 				case o.cAttar.colMap["COMPANYCODE"]:
+					if len(val)>21{
+						val=val[0:21]
+					}
 					tempProductmaster.CompanyCode = val
 				case o.cAttar.colMap["COMPANY"], o.cAttar.colMap["COMPANYNAME"]:
 					tempProductmaster.CompanyName = val
@@ -134,14 +137,14 @@ func (o *ProductMasterAttar) ProductMasterCloudFunction(g *utils.GcsFile, cfg cr
 			// If upload service
 			// var d db.DbObj
 			// dbPtr, err := d.GetConnection("smartdb", cfg)
-			if err != nil {
+			//if err != nil {
 				log.Print(err)
 				g.GcsClient.MoveObject(g.FileName, "error_Files/"+g.FileName, "balatestawacs")
 				log.Println("Porting Error :" + g.FileName)
-				g.ErrorMsg = "Error while connecting to db"
+				//g.ErrorMsg = "Error while connecting to db"
 				g.LogFileDetails(false)
-				return err
-			}
+				//return err
+			//}
 
 			// dbPtr.AutoMigrate(&models.ProductMaster{})
 			// //Insert records to temp table
