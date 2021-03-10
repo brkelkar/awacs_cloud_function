@@ -13,6 +13,7 @@ import (
 
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
+
 	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
 	//db "github.com/brkelkar/common_utils/databases"
@@ -43,6 +44,12 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 	log.Printf("Starting Invoice file upload for :%v/%v ", g.FilePath, g.FileName)
 	i.initInvoice(cfg)
 	g.FileType = "I"
+	if g.DistributorCode == "MHNK200029" || g.DistributorCode == "MHAD200046" {
+		g.GcsClient.MoveObject(g.FileName, g.FileName, "awacserrorinvoice")
+		log.Println("Porting Error :" + g.FileName)
+		g.LogFileDetails(false)
+		return nil
+	}
 	fileSplitSlice := strings.Split(g.FileName, "_")
 	spiltLen := len(fileSplitSlice)
 
