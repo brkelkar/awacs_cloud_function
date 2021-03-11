@@ -14,9 +14,7 @@ import (
 	"awacs.com/awcacs_cloud_function/models"
 	"awacs.com/awcacs_cloud_function/utils"
 
-	//bt "github.com/brkelkar/common_utils/batch"
 	cr "github.com/brkelkar/common_utils/configreader"
-	//db "github.com/brkelkar/common_utils/databases"
 	gc "github.com/brkelkar/common_utils/gcsbucketclient"
 )
 
@@ -217,11 +215,14 @@ func (i *InvoiceAttr) InvoiceCloudFunction(g *utils.GcsFile, cfg cr.Config) (err
 				}
 			}
 		}
+
 		if flag == 0 {
 			tempInvoice.DeveloperId = i.developerID
 			tempInvoice.File_Received_Dttm = &g.LastUpdateTime
 			tempInvoice.SupplierId = g.DistributorCode
-			Invoice = append(Invoice, tempInvoice)
+			if tempInvoice.BillNumber !=""{
+				Invoice = append(Invoice, tempInvoice)
+			}			
 		}
 		flag = 0
 
